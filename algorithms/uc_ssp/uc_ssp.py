@@ -38,8 +38,8 @@ if __name__ == "__main__":
     '''
     # inputs:
     CONFIDENCE = 0.1 # in range (0,1)
-    # costs = SxA provided by the env.
 
+    R = np.zeros(shape=(N_STATES,N_ACTIONS)) # rewards for deterministic env
     N = np.zeros(shape=(N_STATES,N_ACTIONS)) # state-action counter
     G = 0 # number of attemps in phase 2
     K = 200 # num episodes
@@ -62,7 +62,7 @@ if __name__ == "__main__":
             while t <= t_kj + H and not done:
                 a = pi(s)
                 s_, r, done, info = env.step(a)
-                # do something with the reward
+                R[s,a] = r # TODO: need to transfrom rewards to positive costs in range [0,1] with 0 cost for goal state
                 s_idx_ = state_to_idx(s_)
                 nu[s_idx,a] += 1
                 t += 1
