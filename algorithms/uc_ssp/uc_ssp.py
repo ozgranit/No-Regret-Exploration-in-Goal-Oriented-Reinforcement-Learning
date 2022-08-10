@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Tuple
 import gym
+import gym_maze
 import gym.spaces as spaces
 
 class Policy:
