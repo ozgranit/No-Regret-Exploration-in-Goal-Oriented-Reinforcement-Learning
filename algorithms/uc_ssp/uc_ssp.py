@@ -62,6 +62,7 @@ if __name__ == "__main__":
             while t <= t_kj + H and not done:
                 a = pi(s)
                 s_, r, done, info = env.step(a)
+                # do something with the reward
                 s_idx_ = state_to_idx(s_)
                 nu[s_idx,a] += 1
                 t += 1
