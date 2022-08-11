@@ -37,9 +37,6 @@ if __name__ == "__main__":
     '''
     UC-SSP algorithm variables
     '''
-    # inputs:
-    CONFIDENCE = 0.1 # in range (0,1)
-
     R = np.zeros(shape=(N_STATES,N_ACTIONS)) # rewards for deterministic env
     N = np.zeros(shape=(N_STATES,N_ACTIONS)) # state-action counter
     G = 0 # number of attemps in phase 2
