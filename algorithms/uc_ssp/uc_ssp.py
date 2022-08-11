@@ -40,10 +40,12 @@ if __name__ == "__main__":
     '''
     UC-SSP algorithm variables
     '''
-    R = np.zeros(shape=(N_STATES,N_ACTIONS)) # empirical accumulated reward
-    N_k = np.zeros(shape=(N_STATES,N_ACTIONS)) # state-action counter for episode k
+    DELTA = 0.1 # confidence
+    R = np.zeros(shape=(N_STATES,N_ACTIONS), dtype=np.float32) # empirical accumulated reward
+    N_k = np.zeros(shape=(N_STATES,N_ACTIONS), dtype=np.int) # state-action counter for episode k
     G_kj = 0 # number of attemps in phase 2 of episode k
-    K = 200 # num
+    K = 100 # num episode
+    P_counts = np.zeros(shape=(N_STATES, N_ACTIONS, N_STATES), dtype=np.int) # empirical (s,a,s') transition counts
 
 
     ''' RUN ALGORITHM '''
@@ -64,10 +66,12 @@ if __name__ == "__main__":
             while t <= t_kj + H and not done:
                 a = pi(s)
                 s_, r, done, info = env.step(a)
-                R[s,a] += r
+                R[s_idx, a] += r # empirical accumulated reward
                 # TODO: need to transfrom rewards to positive costs in range [0,1] with 0 cost for goal state
                 s_idx_ = state_to_idx(s_)
                 nu_k[s_idx,a] += 1
+                P_counts[s_idx, a, s_idx_] += 1 # add transition count
+                s_idx = s_idx_ # t <-- t+1
                 t += 1
 
             if not done: # switch to phase 2 if goal not reached after H steps
