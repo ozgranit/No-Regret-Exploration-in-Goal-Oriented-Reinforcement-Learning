@@ -5,11 +5,14 @@ import gym_maze
 import gym.spaces as spaces
 
 class Policy:
-    def __init__(self, args):
+    def __init__(self, nstates, nactions):
+        self.policy = np.zeros((nstates,), dtype=int)
         pass
 
     def __call__(self, state: np.ndarray) -> int:
         raise NotImplemented
+
+
 
 
 def state_to_idx(state: np.ndarray) -> int:
@@ -37,10 +40,11 @@ if __name__ == "__main__":
     '''
     UC-SSP algorithm variables
     '''
-    R = np.zeros(shape=(N_STATES,N_ACTIONS)) # rewards for deterministic env
-    N = np.zeros(shape=(N_STATES,N_ACTIONS)) # state-action counter
-    G = 0 # number of attemps in phase 2
-    K = 200 # num episodes
+    R = np.zeros(shape=(N_STATES,N_ACTIONS)) # empirical accumulated reward
+    N_k = np.zeros(shape=(N_STATES,N_ACTIONS)) # state-action counter for episode k
+    G_kj = 0 # number of attemps in phase 2 of episode k
+    K = 200 # num
+
 
     ''' RUN ALGORITHM '''
     s = env.reset()
@@ -52,23 +56,24 @@ if __name__ == "__main__":
         done = False
 
         while not done:
-            t_kj = t
-            nu = np.zeros_like(N)
-            G = G + j
+            t_kj = t # timestep of last j atemp (unless j=0)
+            nu_k = np.zeros_like(N_k) # state-action counter for
+            G_kj += j
             pi, H = evi_ssp(k,j)
 
             while t <= t_kj + H and not done:
                 a = pi(s)
                 s_, r, done, info = env.step(a)
-                R[s,a] = r # TODO: need to transfrom rewards to positive costs in range [0,1] with 0 cost for goal state
+                R[s,a] += r
+                # TODO: need to transfrom rewards to positive costs in range [0,1] with 0 cost for goal state
                 s_idx_ = state_to_idx(s_)
-                nu[s_idx,a] += 1
+                nu_k[s_idx,a] += 1
                 t += 1
 
-            if not done:
-                # switch to phase 2
-                N += nu
+            if not done: # switch to phase 2 if goal not reached after H steps
+                N_k += nu_k
                 j += 1
-        N += nu
+        # if done:
+        N_k += nu_k
 
 
