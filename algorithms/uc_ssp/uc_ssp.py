@@ -52,13 +52,30 @@ class UC_SSP:
         # Defining the environment related constants
         self.n_states = (env.observation_space.high + 1)[0] ** 2
         self.n_actions = env.action_space.n
+        self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
 
-    def bellman_operator(self, values: np.ndarray, n_actions: int, j: int) ->np.ndarray:
+    def bellman_operator(self, values: np.ndarray, j: int) -> np.ndarray:
+
         new_values = np.zeros_like(values)
-        for state in range(len(values)):
-            min_cost_action = np.inf
-            for action in range(n_actions):
-                cost = BellmanCost.get_cost(state, action, j)
+        for state in range(self.n_states):
+
+            min_cost = np.inf
+            for action in range(self.n_actions):
+                cost = self.bellman_cost.get_cost(state, action, j)
+
+                min_expected_val = np.inf
+                for p in confidence_set(state, action):
+                    expected_val = sum([p[state][action][y]*values[y] for y in range(self.n_states)])
+                    if expected_val < min_expected_val:
+                        min_expected_val = expected_val
+
+                cost += min_expected_val
+                if cost < min_cost:
+                    min_cost = cost
+
+            new_values[state] = min_cost
+
+        return new_values
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int, n_states: int) -> Tuple[Policy, int]:
         if j == 0:
