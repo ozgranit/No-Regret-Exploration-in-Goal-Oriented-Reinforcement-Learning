@@ -66,7 +66,7 @@ class UC_SSP:
         # empirical (s,a,s') transition counts
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
 
-    def inner_minimization(self, p_sa_hat, confidence_bound_p_sa, rank):
+    def inner_minimization(self, p_sa_hat, beta, rank):
         """
         Find the best local transition p(.|s, a) within the plausible set of transitions as bounded by the confidence bound for some state action pair.
         Arg:
@@ -78,7 +78,7 @@ class UC_SSP:
         """
 
         p_sa = np.array(p_sa_hat)
-        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + confidence_bound_p_sa / 2)
+        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a distribution (equal to one within numerical tolerance)
@@ -89,11 +89,10 @@ class UC_SSP:
         # print('p_sa', p_sa)
         return p_sa
 
-    def confidence_set_p(self, state, action, values, p_hat, beta):
+    def confidence_set_p(self, values, p_sa_hat, beta_sa):
         # Sort the states by their values in Ascending order
         rank = np.argsort(values)
-        p_sa_hat = p_hat[state][action]  # vector of size S
-        p = self.inner_minimization(p_hat, beta, rank)
+        p = self.inner_minimization(p_sa_hat, beta_sa, rank)
 
         return p
 
@@ -106,9 +105,10 @@ class UC_SSP:
             min_cost = np.inf
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
-
-                p = self.confidence_set_p(state, action, values, p_hat, beta)
-                expected_val = sum([p[state][action][y]*values[y] for y in range(self.n_states)])
+                p_sa_hat = p_hat[state][action] # vector of size S
+                beta_sa = beta[state,action]
+                p_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
+                expected_val = sum([p_tilde[state][action][y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
                 if cost < min_cost:
                     min_cost = cost
