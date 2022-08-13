@@ -128,6 +128,12 @@ class UC_SSP:
             epsilon_kj = 1 / 2*t_kj
             gamma_kj = 1 / np.sqrt(G_kj)
         # estimate MDP
+        # compute p_hat estimates:
+        N_k_ = np.maximum(1,self.N_k) # 'N_k_plus'
+        beta = np.sqrt(
+            (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
+            /N_k_) # bound for norm_1(|p^ - p~|)
+        p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
         m = 0
         v = np.zeros(n_states)
         next_v = self.bellman_operator(v)
