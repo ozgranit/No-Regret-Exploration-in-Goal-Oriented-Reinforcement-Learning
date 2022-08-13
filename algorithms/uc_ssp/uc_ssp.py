@@ -89,18 +89,15 @@ class UC_SSP:
         # print('p_sa', p_sa)
         return p_sa
 
-    def confidence_set_p(self, state, action, values):
+    def confidence_set_p(self, state, action, values, p_hat, beta):
         # Sort the states by their values in Ascending order
         rank = np.argsort(values)
-        p_sa_hat = self.P_counts[state][action]  # vector of size S
-        # TODO: fill
-        confidence_bound_p_sa = None
-
-        p = self.inner_minimization(p_sa_hat, confidence_bound_p_sa, rank)
+        p_sa_hat = p_hat[state][action]  # vector of size S
+        p = self.inner_minimization(p_hat, beta, rank)
 
         return p
 
-    def bellman_operator(self, values: np.ndarray, j: int) -> np.ndarray:
+    def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
 
         new_values = np.zeros_like(values)
@@ -110,7 +107,7 @@ class UC_SSP:
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
 
-                p = self.confidence_set_p(state, action, values)
+                p = self.confidence_set_p(state, action, values, p_hat, beta)
                 expected_val = sum([p[state][action][y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
                 if cost < min_cost:
@@ -134,9 +131,13 @@ class UC_SSP:
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
             /N_k_) # bound for norm_1(|p^ - p~|)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
+
         m = 0
         v = np.zeros(n_states)
-        next_v = self.bellman_operator(v)
+        next_v = self.bellman_operator(v, j, p_hat, beta)
+        # TODO: value iteration while loop 'till convergence
+
+        # return new_policy and H
 
     def run(self):
         ''' RUN ALGORITHM '''
