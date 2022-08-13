@@ -55,6 +55,7 @@ class UC_SSP:
         self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
 
     def bellman_operator(self, values: np.ndarray, j: int) -> np.ndarray:
+        """as defined in Eq. 4 in the article"""
 
         new_values = np.zeros_like(values)
         for state in range(self.n_states):
