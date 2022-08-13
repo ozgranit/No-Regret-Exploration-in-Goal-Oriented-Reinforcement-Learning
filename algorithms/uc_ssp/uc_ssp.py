@@ -8,7 +8,7 @@ from maze_env import gym_maze
 
 class Policy:
     def __init__(self, n_states, n_actions):
-        self.policy = np.zeros((n_states,), dtype=int)
+        self.map = np.zeros((n_states,), dtype=int)
         pass
 
     def __call__(self, state: np.ndarray) -> int:
@@ -48,7 +48,7 @@ class UC_SSP:
         """
         UC-SSP
         """
-        # algorithm variables
+        # algorithm params
         self.c_min = min_cost
         self.c_max = max_cost
         self.delta = confidence
@@ -65,18 +65,18 @@ class UC_SSP:
         self.K = 100  # num episode
         # empirical (s,a,s') transition counts
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
+        self.policy = Policy(self.n_states, self.n_actions)
 
     def inner_minimization(self, p_sa_hat, beta, rank):
         """
         Find the best local transition p(.|s, a) within the plausible set of transitions as bounded by the confidence bound for some state action pair.
         Arg:
             p_sa_hat : (n_states)-shaped float array. MLE estimate for p(.|s, a).
-            confidence_bound_p_sa : scalar. The confidence bound for p(.|s, a) in L1-norm.
+            beta : scalar. The confidence bound for p(.|s, a) in L1-norm.
             rank : (n_states)-shaped int array. The sorted list of states in Ascending order of value.
         Return:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
-
         p_sa = np.array(p_sa_hat)
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
         rank_dup = list(rank)
@@ -108,16 +108,18 @@ class UC_SSP:
                 p_sa_hat = p_hat[state][action] # vector of size S
                 beta_sa = beta[state,action]
                 p_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
-                expected_val = sum([p_tilde[state][action][y]*values[y] for y in range(self.n_states)])
+                expected_val = sum([p_tilde[y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
                 if cost < min_cost:
                     min_cost = cost
+                    # In parallel, update the policy:
+                    self.policy.map[state] = action
 
             new_values[state] = min_cost
 
         return new_values
 
-    def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int, n_states: int) -> Tuple[Policy, int]:
+    def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
         if j == 0:
             epsilon_kj = c_min / 2*t_kj
             gamma_kj = 1 / np.sqrt(k)
@@ -133,11 +135,11 @@ class UC_SSP:
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
         m = 0
-        v = np.zeros(n_states)
+        v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
         # TODO: value iteration while loop 'till convergence
-
-        # return new_policy and H
+        # TODO: compute pi_tilde optimistic policy based on optimistic values
+        # return or update policy and H
 
     def run(self):
         ''' RUN ALGORITHM '''
@@ -153,7 +155,7 @@ class UC_SSP:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
                 self.G_kj += j
-                pi, H = self.evi_ssp(k, j, t_kj, self.G_kj, self.n_states)
+                pi, H = self.evi_ssp(k, j, t_kj, self.G_kj)
 
                 while t <= t_kj + H and not done:
                     a = pi(s)
