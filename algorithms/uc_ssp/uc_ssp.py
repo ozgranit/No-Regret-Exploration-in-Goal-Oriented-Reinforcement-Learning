@@ -44,20 +44,21 @@ class BellmanCost:
 
 
 class UC_SSP:
-    def __init__(self, min_cost: float, max_cost: float, env: gym.Env):
+    def __init__(self, min_cost: float, max_cost: float, confidence: float, env: gym.Env):
+        """
+        UC-SSP
+        """
+        # algorithm variables
         self.c_min = min_cost
         self.c_max = max_cost
-        self.env = env
+        self.delta = confidence
 
         # Defining the environment related constants
+        self.env = env
         self.n_states = (env.observation_space.high + 1)[0] ** 2
         self.n_actions = env.action_space.n
         self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
 
-        # UC-SSP algorithm variables
-        self.DELTA = 0.1  # confidence
-        # empirical accumulated cost
-        self.C = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.float32)
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
         self.G_kj = 0  # number of attempts in phase 2 of episode k
@@ -132,44 +133,51 @@ class UC_SSP:
         next_v = self.bellman_operator(v)
 
     def run(self):
-        """ RUN ALGORITHM """
-
+        ''' RUN ALGORITHM '''
         s = self.env.reset()
         s_idx = state_to_idx(s)
         t = 1  # total env steps
 
-        for k in range(1, K + 1):
+        for k in range(1, self.K + 1):
             j = 0  # num attempts of phase 2 in episode k
             done = False
 
             while not done:
                 t_kj = t  # time-step of last j attempt (unless j=0)
-                nu_k = np.zeros_like(N_k)  # state-action counter for
-                G_kj += j
-                pi, H = self.evi_ssp(k, j, t_kj, G_kj, self.n_states)
+                nu_k = np.zeros_like(self.N_k)  # state-action counter
+                self.G_kj += j
+                pi, H = self.evi_ssp(k, j, t_kj, self.G_kj, self.n_states)
 
                 while t <= t_kj + H and not done:
                     a = pi(s)
-                    s_, r, done, info = self.env.step(a)
-                    C[s_idx, a] += r  # empirical accumulated reward
-                    # TODO: need to transform rewards to positive costs in range [0,1] with 0 cost for goal state
+                    s_, c, done, info = self.env.step(a)
+                    self.bellman_cost.set_cost(s_idx, a, c)
                     s_idx_ = state_to_idx(s_)
                     nu_k[s_idx, a] += 1
-                    P_counts[s_idx, a, s_idx_] += 1  # add transition count
+                    self.P_counts[s_idx, a, s_idx_] += 1  # add transition count
                     s_idx = s_idx_  # t <-- t+1
                     t += 1
 
                 if not done:  # switch to phase 2 if goal not reached after H steps
-                    N_k += nu_k
+                    self.N_k += nu_k
                     j += 1
             # if done:
-            N_k += nu_k
+            self.N_k += nu_k
+
+        return pi
 
 
 if __name__ == "__main__":
+    # algorithm related parameters:
     c_min = 0.1
-    c_max = 1
-    maze_env = gym.make("maze-random-10x10-plus-v0")
-    algorithm = UC_SSP(min_cost=c_min, max_cost=c_max, env=maze_env)
-    algorithm.run()
+    c_max = 0.1
+    DELTA = 0.1
 
+    maze_env = gym.make("maze-random-10x10-plus-v0")
+
+    algorithm = UC_SSP(min_cost=c_min,
+                       max_cost=c_max,
+                       confidence=DELTA,
+                       env=maze_env)
+    pi = algorithm.run()
+    # TODO: plot pi. compare to optimal pi

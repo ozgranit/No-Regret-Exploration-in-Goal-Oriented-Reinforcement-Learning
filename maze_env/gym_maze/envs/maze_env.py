@@ -81,20 +81,22 @@ class MazeEnv(gym.Env):
         else:
             self.maze_view.move_robot(action)
 
+        '''modified to return uniform cost instead of reward '''
         if np.array_equal(self.maze_view.robot, self.maze_view.goal):
-            # cost = 0
-            reward = 1
+            cost = 0.1
+            # reward = 1
             done = True
         else:
-            # cost = 1/|maze|
-            reward = -0.1/(self.maze_size[0]*self.maze_size[1])
+            cost = 0.1
+            # reward = -0.1/(self.maze_size[0]*self.maze_size[1])
             done = False
 
         self.state = self.maze_view.robot
 
         info = {}
 
-        return self.state, reward, done, info
+        return self.state, cost, done, info
+        # return self.state, reward, done, info
 
     def reset(self):
         self.maze_view.reset_robot()
