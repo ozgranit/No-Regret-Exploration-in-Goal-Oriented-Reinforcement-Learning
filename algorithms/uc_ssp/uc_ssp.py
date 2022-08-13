@@ -54,6 +54,51 @@ class UC_SSP:
         self.n_actions = env.action_space.n
         self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
 
+        # UC-SSP algorithm variables
+        self.DELTA = 0.1  # confidence
+        # empirical accumulated cost
+        self.C = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.float32)
+        # state-action counter for episode k
+        self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
+        self.G_kj = 0  # number of attempts in phase 2 of episode k
+        self.K = 100  # num episode
+        # empirical (s,a,s') transition counts
+        self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
+
+    def inner_minimization(self, p_sa_hat, confidence_bound_p_sa, rank):
+        """
+        Find the best local transition p(.|s, a) within the plausible set of transitions as bounded by the confidence bound for some state action pair.
+        Arg:
+            p_sa_hat : (n_states)-shaped float array. MLE estimate for p(.|s, a).
+            confidence_bound_p_sa : scalar. The confidence bound for p(.|s, a) in L1-norm.
+            rank : (n_states)-shaped int array. The sorted list of states in Ascending order of value.
+        Return:
+            (n_states)-shaped float array. The optimistic transition p(.|s, a).
+        """
+
+        p_sa = np.array(p_sa_hat)
+        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + confidence_bound_p_sa / 2)
+        rank_dup = list(rank)
+        last = rank_dup.pop()
+        # Reduce until it is a distribution (equal to one within numerical tolerance)
+        while sum(p_sa) > 1 + 1e-9:
+            # print('inner', last, p_sa)
+            p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
+            last = rank_dup.pop()
+        # print('p_sa', p_sa)
+        return p_sa
+
+    def confidence_set_p(self, state, action, values):
+        # Sort the states by their values in Ascending order
+        rank = np.argsort(values)
+        p_sa_hat = self.P_counts[state][action]  # vector of size S
+        # TODO: fill
+        confidence_bound_p_sa = None
+
+        p = self.inner_minimization(p_sa_hat, confidence_bound_p_sa, rank)
+
+        return p
+
     def bellman_operator(self, values: np.ndarray, j: int) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
 
@@ -64,13 +109,9 @@ class UC_SSP:
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
 
-                min_expected_val = np.inf
-                for p in confidence_set(state, action):
-                    expected_val = sum([p[state][action][y]*values[y] for y in range(self.n_states)])
-                    if expected_val < min_expected_val:
-                        min_expected_val = expected_val
-
-                cost += min_expected_val
+                p = self.confidence_set_p(state, action, values)
+                expected_val = sum([p[state][action][y]*values[y] for y in range(self.n_states)])
+                cost += expected_val
                 if cost < min_cost:
                     min_cost = cost
 
@@ -91,20 +132,8 @@ class UC_SSP:
         next_v = self.bellman_operator(v)
 
     def run(self):
-        """
-        UC-SSP algorithm variables
-        """
-        DELTA = 0.1  # confidence
-        # empirical accumulated cost
-        C = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.float32)
-        # state-action counter for episode k
-        N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
-        G_kj = 0  # number of attempts in phase 2 of episode k
-        K = 100  # num episode
-        # empirical (s,a,s') transition counts
-        P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
+        """ RUN ALGORITHM """
 
-        ''' RUN ALGORITHM '''
         s = self.env.reset()
         s_idx = state_to_idx(s)
         t = 1  # total env steps
