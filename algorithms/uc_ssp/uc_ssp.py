@@ -29,10 +29,13 @@ def state_transform(grid_size: np.ndarray):
 
 
 class BellmanCost:
-    def __init__(self, n_states, n_actions):
-        self.cost = np.zeros((n_states, n_actions))
+    def __init__(self, costs):
+        self.cost = costs
 
     def set_cost(self, state, action, cost):
+        '''
+        TODO: not required as we assume knowned costs. consider removing
+        '''
         if self.cost[state][action] == 0:
             self.cost[state][action] = cost
         else:
@@ -47,7 +50,9 @@ class BellmanCost:
 
 
 class UC_SSP:
-    def __init__(self, min_cost: float, max_cost: float, confidence: float, env: gym.Env):
+    def __init__(self, min_cost: float, max_cost: float, confidence: float,
+                 state_space: np.ndarray, goal: int, costs: np.ndarray,
+                 K: int, env: gym.Env):
         """
         UC-SSP
         """
@@ -60,13 +65,19 @@ class UC_SSP:
         self.env = env
         self.n_states = (env.observation_space.high + 1)[0] ** 2
         self.n_actions = env.action_space.n
+        self.costs = costs
+        self.states = state_space
+        self.goal = goal # goal_state
         self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
 
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
-        self.K = 100  # num episode
+        self.K = K  # num episode
         # empirical (s,a,s') transition counts
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
+        # set p(s_goal|s_goal,a)=1 for any a
+        self.P_counts[self.goal,self.goal,:] = 1 # this ensures that we get prob 1 as needed.
+
         self.policy = Policy(self.n_states, self.n_actions)
 
     @staticmethod
@@ -166,6 +177,7 @@ class UC_SSP:
             j = 0  # num attempts of phase 2 in episode k
             done = False
 
+            # the environment returns done=True if s_==goal_state
             while not done:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
@@ -174,9 +186,9 @@ class UC_SSP:
 
                 while t <= t_kj + H and not done:
                     a = pi(s_idx)
-                    s_, c, done, info = self.env.step(a)
-                    # TODO: make sure that it is also correct for case of reaching the goal state
-                    self.bellman_cost.set_cost(s_idx, a, c)
+                    s_, c, done, _ = self.env.step(a)
+                    # assuming known costs
+                    # self.bellman_cost.set_cost(s_idx, a, c)
                     s_idx_ = _1D_state(s_)
                     nu_k[s_idx, a] += 1
                     self.P_counts[s_idx, a, s_idx_] += 1  # add transition count
@@ -197,14 +209,31 @@ if __name__ == "__main__":
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.1
+    EPISODES = 100
 
     maze_env = gym.make("maze-random-10x10-plus-v0")
+    # util function
     _1D_state, _2D_state = state_transform(maze_env.observation_space.high + 1)
+    # env features
     goal_state = _1D_state(maze_env.maze_view.goal)
+    n_states = (maze_env.observation_space.high + 1)[0] ** 2
+    n_actions = maze_env.action_space.n
+    S_ = np.arange(n_states)
+
+    # assume we know the costs in advance:
+    costs = np.zeros(shape=(n_states, n_actions), dtype=np.float32)
+    # c(s,a)=const for any (s,a) in SxA
+    costs.fill(0.1)
+    # set c(s_goal,a)=0 for any a
+    costs[goal_state,:] = 0
 
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
                        confidence=DELTA,
+                       state_space=S_,
+                       goal=goal_state,
+                       costs=costs,
+                       K=EPISODES,
                        env=maze_env)
     pi = algorithm.run()
     # TODO: plot pi. compare to optimal pi
