@@ -16,7 +16,7 @@ class Policy:
 def state_transform(grid_size: np.ndarray):
     def state_to_idx(state: np.ndarray) -> int:
         """return state 1D representation"""
-        idx = state[0] * grid_size[0] + state[1]
+        idx = state[1] * grid_size[0] + state[0]
         return idx
 
     def idx_to_state(idx: int) -> np.ndarray:
