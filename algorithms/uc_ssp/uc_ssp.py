@@ -136,7 +136,7 @@ class UC_SSP:
                     p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
-                
+
                 # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
