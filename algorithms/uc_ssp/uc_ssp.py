@@ -116,6 +116,10 @@ class UC_SSP:
     def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
 
+        # set p(.|s_goal,a) = 1_hot(goal_state)
+        one_hot_goal = np.zeros(self.n_states, dtype=np.float32)
+        one_hot_goal[self.goal] = 1.0
+
         new_values = np.zeros_like(values)
         for state in range(self.n_states):
 
@@ -126,7 +130,12 @@ class UC_SSP:
                 # get best p in confidence set
                 p_sa_hat = p_hat[state][action]  # vector of size S
                 beta_sa = beta[state, action]
-                p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
+                # p(.|s_goal,a) = 1_hot
+                if state==self.goal:
+                    p_sa_tilde = one_hot_goal
+                else:
+                    # take inner product maximization
+                    p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
                 # TODO: store it in new P_tilde
 
                 # TODO: check if we should really run over all states in S'
