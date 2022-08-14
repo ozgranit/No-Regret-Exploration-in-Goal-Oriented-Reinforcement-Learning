@@ -200,6 +200,7 @@ if __name__ == "__main__":
 
     maze_env = gym.make("maze-random-10x10-plus-v0")
     _1D_state, _2D_state = state_transform(maze_env.observation_space.high + 1)
+    goal_state = _1D_state(maze_env.maze_view.goal)
 
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
