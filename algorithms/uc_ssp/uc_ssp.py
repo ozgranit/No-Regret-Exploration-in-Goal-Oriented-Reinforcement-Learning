@@ -147,7 +147,8 @@ class UC_SSP:
         v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
         # TODO: value iteration while loop 'till convergence
-        # TODO: compute pi_tilde optimistic policy based on optimistic values
+        # TODO: compute p_tilde optimistic transition model
+        # TODO: compute Q_tilde the transition matrix of pi_tilde
         # TODO: compute H
         H = 20
         return self.policy, H
@@ -174,6 +175,7 @@ class UC_SSP:
                 while t <= t_kj + H and not done:
                     a = pi(s_idx)
                     s_, c, done, info = self.env.step(a)
+                    # TODO: make sure that it is also correct for case of reaching the goal state
                     self.bellman_cost.set_cost(s_idx, a, c)
                     s_idx_ = _1D_state(s_)
                     nu_k[s_idx, a] += 1
