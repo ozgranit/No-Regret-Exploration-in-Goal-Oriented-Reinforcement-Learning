@@ -51,8 +51,8 @@ class BellmanCost:
 
 class UC_SSP:
     def __init__(self, min_cost: float, max_cost: float, confidence: float,
-                 state_space: np.ndarray, goal: int, costs: np.ndarray,
-                 K: int, env: gym.Env):
+                 state_space_: np.ndarray, state_space: np.ndarray,
+                 goal: int, costs: np.ndarray, K: int, env: gym.Env):
         """
         UC-SSP
         """
@@ -66,7 +66,8 @@ class UC_SSP:
         self.n_states = (env.observation_space.high + 1)[0] ** 2
         self.n_actions = env.action_space.n
         self.costs = costs
-        self.states = state_space
+        self.states_ = state_space_ # S'
+        self.states = state_space # S (excluding s_goal)
         self.goal = goal # goal_state
         self.bellman_cost = BellmanCost(self.costs)
 
@@ -117,7 +118,6 @@ class UC_SSP:
 
     def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
-
         new_values = np.zeros_like(values)
         for state in range(self.n_states):
 
@@ -128,11 +128,9 @@ class UC_SSP:
                 # get best p in confidence set
                 p_sa_hat = p_hat[state][action]  # vector of size S
                 beta_sa = beta[state, action]
-                if state == self.goal:
-                    # p(.|s_goal,a) = 1_hot
+                if state == self.goal: # p(.|s_goal,a) = 1_hot
                     p_sa_tilde = p_sa_hat
-                else:
-                    # take inner product maximization
+                else: # take inner product maximization
                     p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
@@ -168,7 +166,7 @@ class UC_SSP:
         v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
         # TODO: [ ] value iteration while loop 'till convergence
-        # TODO: [v] p_tilde optimistic transition model is updated in bellman_operator()
+        # TODO: [v] p_tilde optimistic transition model is already updated in bellman_operator()
         # TODO: [ ] compute Q_tilde the transition matrix of pi_tilde
         # TODO: [ ] compute H
         H = 20
@@ -229,7 +227,7 @@ if __name__ == "__main__":
     n_states = (maze_env.observation_space.high + 1)[0] ** 2
     n_actions = maze_env.action_space.n
     S_ = np.arange(n_states)
-
+    S = np.delete(S_, goal_state)
     # assume we know the costs in advance:
     costs = np.zeros(shape=(n_states, n_actions), dtype=np.float32)
     # c(s,a)=const for any (s,a) in SxA
@@ -240,7 +238,8 @@ if __name__ == "__main__":
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
                        confidence=DELTA,
-                       state_space=S_,
+                       state_space_=S_,
+                       state_space=S,
                        goal=goal_state,
                        costs=costs,
                        K=EPISODES,
