@@ -123,7 +123,7 @@ class UC_SSP:
 
         return new_values
 
-    def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
+    def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[np.ndarray, int]:
         if j == 0:
             epsilon_kj = c_min / 2*t_kj
             gamma_kj = 1 / np.sqrt(k)
@@ -143,7 +143,9 @@ class UC_SSP:
         next_v = self.bellman_operator(v, j, p_hat, beta)
         # TODO: value iteration while loop 'till convergence
         # TODO: compute pi_tilde optimistic policy based on optimistic values
-        # return or update policy and H
+        # TODO: compute H
+        H = 20
+        return self.policy.map, H
 
     def run(self):
         """ RUN ALGORITHM """
@@ -165,7 +167,7 @@ class UC_SSP:
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
 
                 while t <= t_kj + H and not done:
-                    a = pi(s)
+                    a = pi[s_idx]
                     s_, c, done, info = self.env.step(a)
                     self.bellman_cost.set_cost(s_idx, a, c)
                     s_idx_ = state_to_idx(s_)
