@@ -12,7 +12,6 @@ class Policy:
         return self.map[state_idx]
 
 
-
 def state_transform(grid_size: np.ndarray):
     def state_to_idx(state: np.ndarray) -> int:
         """return state 1D representation"""
@@ -136,7 +135,7 @@ class UC_SSP:
                 self.p_tilde[state,action] = p_sa_tilde
 
                 # TODO: check if we should really run over all states in S'
-                expected_val = sum([p_sa_tilde[y]*values[y] for y in range(self.n_states)])
+                expected_val = sum([p_sa_tilde[y]*values[y] for y in self.states_])
                 cost += expected_val
                 if cost < min_cost:
                     min_cost = cost
@@ -146,6 +145,25 @@ class UC_SSP:
             new_values[state] = min_cost
 
         return new_values
+
+    def compute_Q(self):
+        S = len(self.states)
+        Q = np.zeros(shape=(S, S), dtype=np.float32)
+        for s in self.states:
+            for s_ in self.states:
+                a = self.policy(s)
+                Q[s,s_] = self.p_tilde[s_,s,a]
+        return Q
+
+    def compute_H(self, Q, gamma):
+        # compute the infinite matrix norm. We assume only positive values in Q
+        Q_inf_norm = np.max(np.sum(Q, axis=1))
+        n = 1
+        while Q_inf_norm > gamma:
+            Q = np.matmul(Q,Q)
+            Q_inf_norm = np.max(np.sum(Q, axis=1))
+            n += 1
+        return n
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
         if j == 0:
@@ -167,10 +185,12 @@ class UC_SSP:
         next_v = self.bellman_operator(v, j, p_hat, beta)
         # TODO: [ ] value iteration while loop 'till convergence
         # TODO: [v] p_tilde optimistic transition model is already updated in bellman_operator()
-        # TODO: [ ] compute Q_tilde the transition matrix of pi_tilde
+        # TODO: [v] compute Q_tilde the transition matrix of pi_tilde
         # TODO: [ ] compute H
-        H = 20
+        Q_tilde = self.compute_Q()
+        H = self.compute_H(Q_tilde, gamma_kj)
         return self.policy, H
+
 
     def run(self):
         """ RUN ALGORITHM """
