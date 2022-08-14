@@ -77,6 +77,8 @@ class UC_SSP:
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
         # set p(s_goal|s_goal,a)=1 for any a
         self.P_counts[self.goal,self.goal,:] = 1 # this ensures that we get prob 1 as needed.
+        # p~ optimistic model
+        self.p_tilde = np.zeros_like(self.P_counts, dtype=np.float32)
 
         self.policy = Policy(self.n_states, self.n_actions)
 
@@ -116,10 +118,6 @@ class UC_SSP:
     def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
 
-        # set p(.|s_goal,a) = 1_hot(goal_state)
-        one_hot_goal = np.zeros(self.n_states, dtype=np.float32)
-        one_hot_goal[self.goal] = 1.0
-
         new_values = np.zeros_like(values)
         for state in range(self.n_states):
 
@@ -130,14 +128,15 @@ class UC_SSP:
                 # get best p in confidence set
                 p_sa_hat = p_hat[state][action]  # vector of size S
                 beta_sa = beta[state, action]
-                # p(.|s_goal,a) = 1_hot
-                if state==self.goal:
-                    p_sa_tilde = one_hot_goal
+                if state == self.goal:
+                    # p(.|s_goal,a) = 1_hot
+                    p_sa_tilde = p_sa_hat
                 else:
                     # take inner product maximization
                     p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
-                # TODO: store it in new P_tilde
-
+                # update optimistic model p~
+                self.p_tilde[state,action] = p_sa_tilde
+                
                 # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
@@ -168,10 +167,10 @@ class UC_SSP:
         m = 0
         v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
-        # TODO: value iteration while loop 'till convergence
-        # TODO: compute p_tilde optimistic transition model
-        # TODO: compute Q_tilde the transition matrix of pi_tilde
-        # TODO: compute H
+        # TODO: [ ] value iteration while loop 'till convergence
+        # TODO: [v] p_tilde optimistic transition model is updated in bellman_operator()
+        # TODO: [ ] compute Q_tilde the transition matrix of pi_tilde
+        # TODO: [ ] compute H
         H = 20
         return self.policy, H
 
