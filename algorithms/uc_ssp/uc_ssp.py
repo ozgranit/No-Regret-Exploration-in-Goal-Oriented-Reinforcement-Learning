@@ -61,7 +61,6 @@ class UC_SSP:
         self.n_states = (env.observation_space.high + 1)[0] ** 2
         self.n_actions = env.action_space.n
         self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
-        self._1D_state, self._2D_state = state_transform(env.observation_space.high + 1)
 
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
@@ -159,7 +158,7 @@ class UC_SSP:
         t = 1  # total env steps
 
         s = self.env.reset()
-        s_idx = self._1D_state(s)
+        s_idx = _1D_state(s)
 
 
         for k in range(1, self.K + 1):
@@ -176,7 +175,7 @@ class UC_SSP:
                     a = pi(s_idx)
                     s_, c, done, info = self.env.step(a)
                     self.bellman_cost.set_cost(s_idx, a, c)
-                    s_idx_ = self._1D_state(s_)
+                    s_idx_ = _1D_state(s_)
                     nu_k[s_idx, a] += 1
                     self.P_counts[s_idx, a, s_idx_] += 1  # add transition count
                     s_idx = s_idx_  # t <-- t+1
@@ -198,6 +197,7 @@ if __name__ == "__main__":
     DELTA = 0.1
 
     maze_env = gym.make("maze-random-10x10-plus-v0")
+    _1D_state, _2D_state = state_transform(maze_env.observation_space.high + 1)
 
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
