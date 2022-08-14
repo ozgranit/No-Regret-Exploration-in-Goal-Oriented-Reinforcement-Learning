@@ -13,14 +13,19 @@ class Policy:
         raise NotImplemented
 
 
-def state_to_idx(state: np.ndarray) -> int:
-    """return state 1D representation"""
-    raise NotImplemented
+def state_transform(grid_size: np.ndarray):
+    def state_to_idx(state: np.ndarray) -> int:
+        """return state 1D representation"""
+        idx = state[0] * grid_size[0] + state[1]
+        return idx
 
+    def idx_to_state(idx: int) -> np.ndarray:
+        """return state 2D coordinate representation"""
+        x = idx % grid_size[0]
+        y = np.floor(idx / grid_size[0])
+        return np.array([x, y])
 
-def idx_to_state(idx: int) -> np.ndarray:
-    """return state 2D coordinate representation"""
-    raise NotImplemented
+    return state_to_idx, idx_to_state
 
 
 class BellmanCost:
@@ -56,6 +61,7 @@ class UC_SSP:
         self.n_states = (env.observation_space.high + 1)[0] ** 2
         self.n_actions = env.action_space.n
         self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
+        self._1D_state, self._2D_state = state_transform(env.observation_space.high + 1)
 
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
@@ -153,7 +159,7 @@ class UC_SSP:
         t = 1  # total env steps
 
         s = self.env.reset()
-        s_idx = state_to_idx(s)
+        s_idx = self._1D_state(s)
 
 
         for k in range(1, self.K + 1):
@@ -170,7 +176,7 @@ class UC_SSP:
                     a = pi[s_idx]
                     s_, c, done, info = self.env.step(a)
                     self.bellman_cost.set_cost(s_idx, a, c)
-                    s_idx_ = state_to_idx(s_)
+                    s_idx_ = self._1D_state(s_)
                     nu_k[s_idx, a] += 1
                     self.P_counts[s_idx, a, s_idx_] += 1  # add transition count
                     s_idx = s_idx_  # t <-- t+1
