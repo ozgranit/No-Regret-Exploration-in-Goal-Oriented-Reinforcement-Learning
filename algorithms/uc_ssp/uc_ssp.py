@@ -2,8 +2,6 @@ import gym
 import numpy as np
 
 from typing import Tuple
-import gym.spaces as spaces
-from maze_env import gym_maze
 
 
 class Policy:
@@ -61,15 +59,16 @@ class UC_SSP:
 
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
-        self.G_kj = 0  # number of attempts in phase 2 of episode k
         self.K = 100  # num episode
         # empirical (s,a,s') transition counts
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
         self.policy = Policy(self.n_states, self.n_actions)
 
-    def inner_minimization(self, p_sa_hat, beta, rank):
+    @staticmethod
+    def inner_minimization(p_sa_hat, beta, rank):
         """
-        Find the best local transition p(.|s, a) within the plausible set of transitions as bounded by the confidence bound for some state action pair.
+        Find the best local transition p(.|s, a) within the plausible set of transitions
+        as bounded by the confidence bound for some state action pair.
         Arg:
             p_sa_hat : (n_states)-shaped float array. MLE estimate for p(.|s, a).
             beta : scalar. The confidence bound for p(.|s, a) in L1-norm.
@@ -78,15 +77,17 @@ class UC_SSP:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
         p_sa = np.array(p_sa_hat)
+        # TODO: not sure if '/ 2' is required
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a distribution (equal to one within numerical tolerance)
         while sum(p_sa) > 1 + 1e-9:
-            # print('inner', last, p_sa)
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
-        # print('p_sa', p_sa)
+
+        assert np.linalg.norm((p_sa - p_sa_hat), ord=1) <= beta
+
         return p_sa
 
     def confidence_set_p(self, values, p_sa_hat, beta_sa):
@@ -105,10 +106,13 @@ class UC_SSP:
             min_cost = np.inf
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
-                p_sa_hat = p_hat[state][action] # vector of size S
-                beta_sa = beta[state,action]
-                p_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
-                expected_val = sum([p_tilde[y]*values[y] for y in range(self.n_states)])
+
+                # get best p in confidence set
+                p_sa_hat = p_hat[state][action]  # vector of size S
+                beta_sa = beta[state, action]
+                p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
+
+                expected_val = sum([p_sa_tilde[y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
                 if cost < min_cost:
                     min_cost = cost
@@ -128,10 +132,10 @@ class UC_SSP:
             gamma_kj = 1 / np.sqrt(G_kj)
         # estimate MDP
         # compute p_hat estimates:
-        N_k_ = np.maximum(1,self.N_k) # 'N_k_plus'
+        N_k_ = np.maximum(1, self.N_k)  # 'N_k_plus'
         beta = np.sqrt(
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
-            /N_k_) # bound for norm_1(|p^ - p~|)
+            / N_k_)  # bound for norm_1(|p^ - p~|)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
         m = 0
@@ -142,10 +146,13 @@ class UC_SSP:
         # return or update policy and H
 
     def run(self):
-        ''' RUN ALGORITHM '''
+        """ RUN ALGORITHM """
+        G_kj = 0  # number of attempts in phase 2 of episode k
+        t = 1  # total env steps
+
         s = self.env.reset()
         s_idx = state_to_idx(s)
-        t = 1  # total env steps
+
 
         for k in range(1, self.K + 1):
             j = 0  # num attempts of phase 2 in episode k
@@ -154,8 +161,8 @@ class UC_SSP:
             while not done:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
-                self.G_kj += j
-                pi, H = self.evi_ssp(k, j, t_kj, self.G_kj)
+                G_kj += j
+                pi, H = self.evi_ssp(k, j, t_kj, G_kj)
 
                 while t <= t_kj + H and not done:
                     a = pi(s)
