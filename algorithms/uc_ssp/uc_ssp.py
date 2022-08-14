@@ -81,7 +81,7 @@ class UC_SSP:
         self.policy = Policy(self.n_states, self.n_actions)
 
     @staticmethod
-    def inner_minimization(p_sa_hat, beta, rank):
+    def inner_minimization(p_sa_hat, beta, rank) -> np.ndarray:
         """
         Find the best local transition p(.|s, a) within the plausible set of transitions
         as bounded by the confidence bound for some state action pair.
@@ -127,7 +127,9 @@ class UC_SSP:
                 p_sa_hat = p_hat[state][action]  # vector of size S
                 beta_sa = beta[state, action]
                 p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
+                # TODO: store it in new P_tilde
 
+                # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y]*values[y] for y in range(self.n_states)])
                 cost += expected_val
                 if cost < min_cost:
