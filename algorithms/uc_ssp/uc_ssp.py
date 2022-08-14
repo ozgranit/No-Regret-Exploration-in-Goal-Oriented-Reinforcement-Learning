@@ -29,7 +29,7 @@ def state_transform(grid_size: np.ndarray):
 
 
 class BellmanCost:
-    def __init__(self, costs):
+    def __init__(self, costs: np.ndarray):
         self.cost = costs
 
     def set_cost(self, state, action, cost):
@@ -42,9 +42,9 @@ class BellmanCost:
             # already set this cost - make sure this is a deterministic cost MDP
             assert self.cost[state][action] == cost
 
-    def get_cost(self, state, action, j):
+    def get_cost(self, state: int, action: int, j: int) -> float:
         if j != 0:
-            return 1
+            return 1.0
 
         return self.cost[state][action]
 
@@ -68,7 +68,7 @@ class UC_SSP:
         self.costs = costs
         self.states = state_space
         self.goal = goal # goal_state
-        self.bellman_cost = BellmanCost(self.n_states, self.n_actions)
+        self.bellman_cost = BellmanCost(self.costs)
 
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
