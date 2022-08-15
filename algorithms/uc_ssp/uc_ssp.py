@@ -108,32 +108,33 @@ class UC_SSP:
 
         return p_sa
 
-    def confidence_set_p(self, values, p_sa_hat, beta_sa):
-        # Sort the states by their values in Ascending order
-        rank = np.argsort(values)
-        p = self.inner_minimization(p_sa_hat, beta_sa, rank)
-        return p
+    # def confidence_set_p(self, values, p_sa_hat, beta_sa):
+    #     # Sort the states by their values in Ascending order
+    #     p = self.inner_minimization(p_sa_hat, beta_sa, rank)
+    #     return p
 
     def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
         new_values = np.zeros_like(values)
+        # Sort the values by their values in ascending order
+        rank = np.argsort(values)
+
         for state in range(self.n_states):
 
             min_cost = np.inf
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
-
                 # get best p in confidence set
                 p_sa_hat = p_hat[state][action]  # vector of size S
                 beta_sa = beta[state, action]
                 if state == self.goal: # p(.|s_goal,a) = 1_hot
                     p_sa_tilde = p_sa_hat
                 else: # s != s_goal, take inner product minimization
-                    p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
+                    p_sa_tilde = self.inner_minimization(p_sa_hat, beta_sa, rank)
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
 
-                assert np.abs(np.sum(p_sa_tilde)-1) < 1e-7
+                assert np.abs(np.sum(p_sa_tilde)-1) < 1e-9
 
                 # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y]*values[y] for y in self.states_])
@@ -143,6 +144,7 @@ class UC_SSP:
                     # In parallel, update the policy:
                     self.policy.map[state] = action
 
+            # todo: ?
             new_values[state] = min_cost
 
             assert new_values[self.goal] == 0
@@ -205,26 +207,25 @@ class UC_SSP:
         G_kj = 0  # number of attempts in phase 2 of episode k
         t = 1  # total env steps
 
-        s = env.reset()
-        s_idx = _1D_state(s)
-
-        if RENDER_MAZE:
-            env.render()
-
         for k in range(1, self.K + 1):
             j = 0  # num attempts of phase 2 in episode k
-            done = s_idx==self.goal #
+
+            s = env.reset()
+            s_idx = _1D_state(s)
+
+            if RENDER_MAZE:
+                env.render()
 
             # the environment returns done=True if s_==goal_state
-            while not done:
+            while not s_idx==self.goal:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
                 G_kj += j
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
 
-                while t <= t_kj + H and not done:
+                while t <= t_kj + H and not s_idx==self.goal:
                     a = pi(s_idx)
-                    s_, c, done, _ = env.step(a)
+                    s_, c, _, _ = env.step(a)
                     # assuming known costs
                     # self.bellman_cost.set_cost(s_idx, a, c)
                     s_idx_ = _1D_state(s_)
@@ -236,7 +237,7 @@ class UC_SSP:
                     if RENDER_MAZE:
                         env.render()
 
-                if not done:  # switch to phase 2 if goal not reached after H steps
+                if not s_idx==self.goal:  # switch to phase 2 if goal not reached after H steps
                     self.N_k += nu_k
                     j += 1
             # if done:
