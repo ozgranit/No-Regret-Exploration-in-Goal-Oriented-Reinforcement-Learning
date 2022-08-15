@@ -218,7 +218,7 @@ class UC_SSP:
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
                 G_kj += j
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
-                
+
                 while t <= t_kj + H and not s_idx==self.goal:
                     a = pi(s_idx)
                     s_, c, _, _ = env.step(a)
