@@ -29,8 +29,9 @@ def state_transform(grid_size: np.ndarray):
 
 
 class BellmanCost:
-    def __init__(self, costs: np.ndarray):
+    def __init__(self, costs: np.ndarray, goal_state: int):
         self.cost = costs
+        self.goal = goal_state
 
     def set_cost(self, state, action, cost):
 
@@ -43,7 +44,8 @@ class BellmanCost:
 
     def get_cost(self, state: int, action: int, j: int) -> float:
         if j != 0:
-            return 1.0
+            if state != self.goal:
+                return 1.0
 
         return self.cost[state][action]
 
@@ -67,7 +69,7 @@ class UC_SSP:
         self.states_ = state_space_ # S'
         self.states = state_space # S (excluding s_goal)
         self.goal = goal # goal_state
-        self.bellman_cost = BellmanCost(self.costs)
+        self.bellman_cost = BellmanCost(self.costs, self.goal)
 
         # state-action counter for episode k
         self.N_k = np.zeros(shape=(self.n_states, self.n_actions), dtype=np.int)
@@ -126,10 +128,12 @@ class UC_SSP:
                 beta_sa = beta[state, action]
                 if state == self.goal: # p(.|s_goal,a) = 1_hot
                     p_sa_tilde = p_sa_hat
-                else: # s != s_goal, take inner product maximization
+                else: # s != s_goal, take inner product minimization
                     p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
+
+                assert np.abs(np.sum(p_sa_tilde)-1) < 1e-7
 
                 # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y]*values[y] for y in self.states_])
@@ -140,6 +144,8 @@ class UC_SSP:
                     self.policy.map[state] = action
 
             new_values[state] = min_cost
+
+            assert new_values[self.goal] == 0
 
         return new_values
 
@@ -178,6 +184,8 @@ class UC_SSP:
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
             / N_k_)  # bound for norm_1(|p^ - p~|)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
+
+        # assert np.sum(p_hat, axis=2)
 
         v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
