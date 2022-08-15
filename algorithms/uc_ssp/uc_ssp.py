@@ -169,10 +169,10 @@ class UC_SSP:
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
         if j == 0:
-            epsilon_kj = c_min / 2*t_kj
+            epsilon_kj = c_min / (2*t_kj)
             gamma_kj = 1 / np.sqrt(k)
         else:
-            epsilon_kj = 1 / 2*t_kj
+            epsilon_kj = 1 / (2*t_kj)
             gamma_kj = 1 / np.sqrt(G_kj)
         # estimate MDP. compute p_hat estimates and beta:
         N_k_ = np.maximum(1, self.N_k)  # 'N_k_plus'
@@ -187,7 +187,7 @@ class UC_SSP:
         # value iteration step:
         while dv_norm > epsilon_kj:
             v = next_v
-            v_next = self.bellman_operator(v, j, p_hat, beta)
+            next_v = self.bellman_operator(v, j, p_hat, beta)
             dv_norm = np.max(next_v - v)
         # p~ and pi~ are updated during the value iteration in backend
         Q_tilde = self.compute_Q()
