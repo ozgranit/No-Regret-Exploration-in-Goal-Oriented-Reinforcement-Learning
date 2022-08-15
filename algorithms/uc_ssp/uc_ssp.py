@@ -1,4 +1,5 @@
 import gym
+import gym_maze
 import numpy as np
 
 from typing import Tuple
@@ -6,23 +7,23 @@ from typing import Tuple
 
 class Policy:
     def __init__(self, n_states, n_actions):
-        self.map = np.zeros((n_states,), dtype=int)
+        self.map = np.zeros((n_states,), dtype=np.int)
 
     def __call__(self, state_idx: int) -> int:
-        return self.map[state_idx]
+        return int(self.map[state_idx])
 
 
 def state_transform(grid_size: np.ndarray):
     def state_to_idx(state: np.ndarray) -> int:
         """return state 1D representation"""
         idx = state[1] * grid_size[0] + state[0]
-        return idx
+        return int(idx)
 
     def idx_to_state(idx: int) -> np.ndarray:
         """return state 2D coordinate representation"""
         x = idx % grid_size[0]
         y = np.floor(idx / grid_size[0])
-        return np.array([x, y])
+        return np.array([x, y], dtype=np.int)
 
     return state_to_idx, idx_to_state
 
@@ -50,8 +51,8 @@ class BellmanCost:
 
 class UC_SSP:
     def __init__(self, min_cost: float, max_cost: float, confidence: float,
-                 state_space_: np.ndarray, state_space: np.ndarray,
-                 goal: int, costs: np.ndarray, K: int, env: gym.Env):
+                 state_space_: np.ndarray, state_space: np.ndarray, n_actions: int,
+                 goal: int, costs: np.ndarray, K: int):
         """
         UC-SSP
         """
@@ -61,9 +62,8 @@ class UC_SSP:
         self.delta = confidence
 
         # Defining the environment related constants
-        self.env = env
-        self.n_states = (env.observation_space.high + 1)[0] ** 2
-        self.n_actions = env.action_space.n
+        self.n_states = len(state_space_)
+        self.n_actions = n_actions
         self.costs = costs
         self.states_ = state_space_ # S'
         self.states = state_space # S (excluding s_goal)
@@ -76,7 +76,7 @@ class UC_SSP:
         # empirical (s,a,s') transition counts
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=np.int)
         # set p(s_goal|s_goal,a)=1 for any a
-        self.P_counts[self.goal,self.goal,:] = 1 # this ensures that we get prob 1 as needed.
+        self.P_counts[self.goal,:,self.goal] = 1 # this ensures that we get prob 1 as needed.
         # p~ optimistic model
         self.p_tilde = np.zeros_like(self.P_counts, dtype=np.float32)
 
@@ -99,7 +99,7 @@ class UC_SSP:
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
         rank_dup = list(rank)
         last = rank_dup.pop()
-        # Reduce until it is a distribution (equal to one within numerical tolerance)
+        # Reduce until it is a proper distribution (equal to one within numerical tolerance)
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
@@ -112,7 +112,6 @@ class UC_SSP:
         # Sort the states by their values in Ascending order
         rank = np.argsort(values)
         p = self.inner_minimization(p_sa_hat, beta_sa, rank)
-
         return p
 
     def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
@@ -129,7 +128,7 @@ class UC_SSP:
                 beta_sa = beta[state, action]
                 if state == self.goal: # p(.|s_goal,a) = 1_hot
                     p_sa_tilde = p_sa_hat
-                else: # take inner product maximization
+                else: # s != s_goal, take inner product maximization
                     p_sa_tilde = self.confidence_set_p(values, p_sa_hat, beta_sa)
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
@@ -147,12 +146,13 @@ class UC_SSP:
         return new_values
 
     def compute_Q(self):
+        """compute the transition matrix of pi~ in the optimistic model p~ for any (s,s')"""
         S = len(self.states)
         Q = np.zeros(shape=(S, S), dtype=np.float32)
         for s in self.states:
             for s_ in self.states:
                 a = self.policy(s)
-                Q[s,s_] = self.p_tilde[s_,s,a]
+                Q[s,s_] = self.p_tilde[s,a,s_]
         return Q
 
     def compute_H(self, Q, gamma):
@@ -163,6 +163,8 @@ class UC_SSP:
             Q = np.matmul(Q,Q)
             Q_inf_norm = np.max(np.sum(Q, axis=1))
             n += 1
+        if not n>1:
+            n=2
         return n
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
@@ -172,21 +174,22 @@ class UC_SSP:
         else:
             epsilon_kj = 1 / 2*t_kj
             gamma_kj = 1 / np.sqrt(G_kj)
-        # estimate MDP
-        # compute p_hat estimates:
+        # estimate MDP. compute p_hat estimates and beta:
         N_k_ = np.maximum(1, self.N_k)  # 'N_k_plus'
         beta = np.sqrt(
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
             / N_k_)  # bound for norm_1(|p^ - p~|)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
-        m = 0
         v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
-        # TODO: [ ] value iteration while loop 'till convergence
-        # TODO: [v] p_tilde optimistic transition model is already updated in bellman_operator()
-        # TODO: [v] compute Q_tilde the transition matrix of pi_tilde
-        # TODO: [ ] compute H
+        dv_norm = np.max(next_v-v)
+        # value iteration step:
+        while dv_norm > epsilon_kj:
+            v = next_v
+            v_next = self.bellman_operator(v, j, p_hat, beta)
+            dv_norm = np.max(next_v - v)
+        # p~ and pi~ are updated during the value iteration in backend
         Q_tilde = self.compute_Q()
         H = self.compute_H(Q_tilde, gamma_kj)
         return self.policy, H
@@ -197,13 +200,15 @@ class UC_SSP:
         G_kj = 0  # number of attempts in phase 2 of episode k
         t = 1  # total env steps
 
-        s = self.env.reset()
+        s = env.reset()
         s_idx = _1D_state(s)
 
+        if RENDER_MAZE:
+            env.render()
 
         for k in range(1, self.K + 1):
             j = 0  # num attempts of phase 2 in episode k
-            done = False
+            done = s_idx==self.goal #
 
             # the environment returns done=True if s_==goal_state
             while not done:
@@ -214,7 +219,7 @@ class UC_SSP:
 
                 while t <= t_kj + H and not done:
                     a = pi(s_idx)
-                    s_, c, done, _ = self.env.step(a)
+                    s_, c, done, _ = env.step(a)
                     # assuming known costs
                     # self.bellman_cost.set_cost(s_idx, a, c)
                     s_idx_ = _1D_state(s_)
@@ -222,6 +227,9 @@ class UC_SSP:
                     self.P_counts[s_idx, a, s_idx_] += 1  # add transition count
                     s_idx = s_idx_  # t <-- t+1
                     t += 1
+
+                    if RENDER_MAZE:
+                        env.render()
 
                 if not done:  # switch to phase 2 if goal not reached after H steps
                     self.N_k += nu_k
@@ -239,30 +247,32 @@ if __name__ == "__main__":
     DELTA = 0.1
     EPISODES = 100
 
-    maze_env = gym.make("maze-random-10x10-plus-v0")
+    # maze_env = gym.make("maze-random-10x10-plus-v0")
+    env = gym.make("maze-v0")
+    RENDER_MAZE = True
     # util function
-    _1D_state, _2D_state = state_transform(maze_env.observation_space.high + 1)
+    _1D_state, _2D_state = state_transform(env.observation_space.high + 1)
     # env features
-    goal_state = _1D_state(maze_env.maze_view.goal)
-    n_states = (maze_env.observation_space.high + 1)[0] ** 2
-    n_actions = maze_env.action_space.n
-    S_ = np.arange(n_states)
-    S = np.delete(S_, goal_state)
+    GOAL_STATE = _1D_state(env.maze_view.goal)
+    N_STATES = (env.observation_space.high + 1)[0] ** 2
+    N_ACTIONS = env.action_space.n
+    S_ = np.arange(N_STATES)
+    S = np.delete(S_, GOAL_STATE)
     # assume we know the costs in advance:
-    costs = np.zeros(shape=(n_states, n_actions), dtype=np.float32)
+    COSTS = np.zeros(shape=(N_STATES, N_ACTIONS), dtype=np.float32)
     # c(s,a)=const for any (s,a) in SxA
-    costs.fill(0.1)
+    COSTS.fill(0.1)
     # set c(s_goal,a)=0 for any a
-    costs[goal_state,:] = 0
+    COSTS[GOAL_STATE,:] = 0
 
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
                        confidence=DELTA,
                        state_space_=S_,
                        state_space=S,
-                       goal=goal_state,
-                       costs=costs,
-                       K=EPISODES,
-                       env=maze_env)
+                       n_actions=N_ACTIONS,
+                       goal=GOAL_STATE,
+                       costs=COSTS,
+                       K=EPISODES)
     pi = algorithm.run()
     # TODO: plot pi. compare to optimal pi
