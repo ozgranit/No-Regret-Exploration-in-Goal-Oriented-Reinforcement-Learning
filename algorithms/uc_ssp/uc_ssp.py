@@ -33,9 +33,8 @@ class BellmanCost:
         self.cost = costs
 
     def set_cost(self, state, action, cost):
-        '''
-        TODO: not required as we assume knowned costs. consider removing
-        '''
+
+        # TODO: not required as we assume known costs. consider removing
         if self.cost[state][action] == 0:
             self.cost[state][action] = cost
         else:
@@ -95,8 +94,7 @@ class UC_SSP:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
         p_sa = np.array(p_sa_hat)
-        # TODO: not sure if '/ 2' is required
-        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
+        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a proper distribution (equal to one within numerical tolerance)
@@ -193,7 +191,6 @@ class UC_SSP:
         Q_tilde = self.compute_Q()
         H = self.compute_H(Q_tilde, gamma_kj)
         return self.policy, H
-
 
     def run(self):
         """ RUN ALGORITHM """
