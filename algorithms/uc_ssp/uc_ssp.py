@@ -256,9 +256,8 @@ if __name__ == "__main__":
     # algorithm related parameters:
     c_min = 0.1
     c_max = 0.1
-    DELTA = 0.85
-    EPISODES = 100
-
+    DELTA = 0.9
+    EPISODES = 1
     # env = gym.make("maze-random-10x10-plus-v0")
     # env = gym.make("maze-v0")
     env = gym.make("maze-sample-3x3-v0")
