@@ -73,11 +73,11 @@ class MazeEnv(gym.Env):
     def step(self, action):
         if isinstance(action, int):
             # take wrong action with prob=0.2
-            probs = [0.05] * 5
-            probs[action] = 0.8
+            probs = [0.1] * 5
+            probs[action] = 0.6
             action_ = np.random.choice(5, p=probs)
             if action_!=4: # if action==4 take no action
-                self.maze_view.move_robot(self.ACTION[action])
+                self.maze_view.move_robot(self.ACTION[action_])
         else:
             self.maze_view.move_robot(action)
 
