@@ -14,21 +14,6 @@ class Policy:
         return int(self.map[state_idx])
 
 
-def state_transform(grid_size: np.ndarray):
-    def state_to_idx(state: np.ndarray) -> int:
-        """return state 1D representation"""
-        idx = state[1] * grid_size[0] + state[0]
-        return int(idx)
-
-    def idx_to_state(idx: int) -> np.ndarray:
-        """return state 2D coordinate representation"""
-        x = idx % grid_size[0]
-        y = np.floor(idx / grid_size[0])
-        return np.array([x, y], dtype=np.int)
-
-    return state_to_idx, idx_to_state
-
-
 class BellmanCost:
     def __init__(self, costs: np.ndarray, goal_state: int):
         self.cost = costs
@@ -125,14 +110,13 @@ class UC_SSP:
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
-
-        # scale up
+        # scale up if started with lower value
         if np.sum(p_sa) < 1:
             while np.sum(p_sa) < 1:
                 p_sa *= 1/np.sum(p_sa)
 
 
-        if np.abs(np.sum(p_sa)-1) > 1e-9:
+        if abs(np.sum(p_sa)-1) > 1e-9:
             raise ValueError(f"proba vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
 
         return p_sa
@@ -159,7 +143,7 @@ class UC_SSP:
                     p_sa_tilde = self.inner_minimization(p_sa_hat, beta_sa, rank)
 
                 # update optimistic model p~
-                self.p_tilde[state,action] = p_sa_tilde
+                self.p_tilde[state, action] = p_sa_tilde
 
                 assert np.abs(np.sum(p_sa_tilde)-1) < 1e-9
 
@@ -179,6 +163,9 @@ class UC_SSP:
 
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
+        """EVI algorithm as described in
+         'Near-optimal Regret Bounds for Reinforcement Learning' T. Jaksch
+         with modifications for UC-SSP as described according to the paper"""
         if j == 0:
             epsilon_kj = c_min / (2*t_kj)
             gamma_kj = 1 / np.sqrt(k)
@@ -190,14 +177,15 @@ class UC_SSP:
         beta = np.sqrt(
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
             / N_k_)  # bound for norm_1(|p^ - p~|)
-        # TODO: scale down beta
-        beta /= 30
+        # TODO: scaledown beta
+        beta /= 50 # if not scaled down, won't work for sure
+        # beta.fill(0.001)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
         # TODO: initialize v
         v = np.zeros(self.n_states)
-        # v = np.random.rand(self.n_states)
-        v.fill(0.5) # inf like
+        v.fill(0.1)
+        # v = np.random.rand(self.n_states)*0.01
         v[self.goal] = 0 # exclude the goal state
 
         next_v = self.bellman_operator(v, j, p_hat, beta)
@@ -253,16 +241,31 @@ class UC_SSP:
 
         return pi
 
+def state_transform(grid_size: np.ndarray):
+    """ util functions """
+    def state_to_idx(state: np.ndarray) -> int:
+        """return state 1D representation"""
+        idx = state[1] * grid_size[0] + state[0]
+        return int(idx)
+
+    def idx_to_state(idx: int) -> np.ndarray:
+        """return state 2D coordinate representation"""
+        x = idx % grid_size[0]
+        y = np.floor(idx / grid_size[0])
+        return np.array([x, y], dtype=np.int)
+
+    return state_to_idx, idx_to_state
+
 
 if __name__ == "__main__":
     # algorithm related parameters:
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.9
-    EPISODES = 10
+    EPISODES = 100
     # env = gym.make("maze-random-10x10-plus-v0")
-    # env = gym.make("maze-v0")
-    env = gym.make("maze-sample-3x3-v0")
+    env = gym.make("maze-v0")
+    # env = gym.make("maze-sample-3x3-v0")
     RENDER_MAZE = True
     # util function
     _1D_state, _2D_state = state_transform(env.observation_space.high + 1)
