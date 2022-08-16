@@ -102,7 +102,6 @@ class UC_SSP:
             Q = np.matmul(Q,Q)
             Q_inf_norm = np.max(np.sum(Q, axis=1))
             n += 1
-        print(n)
         return n
 
     @staticmethod
@@ -120,14 +119,18 @@ class UC_SSP:
         """
         p_sa = np.array(p_sa_hat)
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
-        # if np.sum(p_sa) < 1:
-        #     p_sa[rank[0]] = 1.0
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a proper distribution (equal to one within numerical tolerance)
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
+
+        # scale up
+        if np.sum(p_sa) < 1:
+            while np.sum(p_sa) < 1:
+                p_sa *= 1/np.sum(p_sa)
+
 
         if np.abs(np.sum(p_sa)-1) > 1e-9:
             raise ValueError(f"proba vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
@@ -170,8 +173,8 @@ class UC_SSP:
 
             new_values[state] = min_cost
 
-
             assert new_values[self.goal] == 0
+
         return new_values
 
 
@@ -188,13 +191,13 @@ class UC_SSP:
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
             / N_k_)  # bound for norm_1(|p^ - p~|)
         # TODO: scale down beta
-        beta /= 10
+        beta /= 30
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
         # TODO: initialize v
         v = np.zeros(self.n_states)
         # v = np.random.rand(self.n_states)
-        v.fill(1) # inf like
+        v.fill(0.5) # inf like
         v[self.goal] = 0 # exclude the goal state
 
         next_v = self.bellman_operator(v, j, p_hat, beta)
@@ -256,7 +259,7 @@ if __name__ == "__main__":
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.9
-    EPISODES = 100
+    EPISODES = 10
     # env = gym.make("maze-random-10x10-plus-v0")
     # env = gym.make("maze-v0")
     env = gym.make("maze-sample-3x3-v0")

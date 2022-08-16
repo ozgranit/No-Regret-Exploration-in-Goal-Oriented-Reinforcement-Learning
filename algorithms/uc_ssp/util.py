@@ -14,6 +14,8 @@ def plot_policy(policy):
     v = [vec_map[a][1] for a in policy_]
     u = np.array(u).reshape(policy.shape)
     v = np.array(v).reshape(policy.shape)
+    v[-1][-1]=0 # goal state
+
     fig, ax = plt.subplots(figsize=(4,4))
 
     ax.quiver(X+0.5, Y-0.5, u, v, scale=10, width=0.02, headwidth=3 ,headlength=5.5)
