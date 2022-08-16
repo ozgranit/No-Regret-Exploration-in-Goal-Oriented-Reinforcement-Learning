@@ -1,6 +1,7 @@
 import gym
 import gym_maze
 import numpy as np
+import sys
 
 from typing import Tuple
 
@@ -277,4 +278,5 @@ if __name__ == "__main__":
                        costs=COSTS,
                        K=EPISODES)
     pi = algorithm.run()
+    sys.exit()
     # TODO: plot pi. compare to optimal pi
