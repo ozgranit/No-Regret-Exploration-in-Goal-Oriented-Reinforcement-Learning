@@ -2,8 +2,8 @@ import gym
 import gym_maze
 import numpy as np
 import sys
-
 from typing import Tuple
+from util import plot_policy
 
 
 class Policy:
@@ -84,6 +84,27 @@ class UC_SSP:
 
         self.policy = Policy(self.n_states, self.n_actions)
 
+    def compute_Q(self):
+        """compute the transition matrix of pi~ in the optimistic model p~ for any (s,s')"""
+        S = len(self.states)
+        Q = np.zeros(shape=(S, S), dtype=np.float32)
+        for s in self.states:
+            for s_ in self.states:
+                a = self.policy(s)
+                Q[s,s_] = self.p_tilde[s,a,s_]
+        return Q
+
+    def compute_H(self, Q, gamma):
+        # compute the infinite matrix norm. We assume only positive values in Q
+        Q_inf_norm = np.max(np.sum(Q, axis=1))
+        n = 1
+        while Q_inf_norm > gamma or n == 1:
+            Q = np.matmul(Q,Q)
+            Q_inf_norm = np.max(np.sum(Q, axis=1))
+            n += 1
+        print(n)
+        return n
+
     @staticmethod
     def inner_minimization(p_sa_hat, beta, rank) -> np.ndarray:
         """
@@ -99,6 +120,8 @@ class UC_SSP:
         """
         p_sa = np.array(p_sa_hat)
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
+        # if np.sum(p_sa) < 1:
+        #     p_sa[rank[0]] = 1.0
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a proper distribution (equal to one within numerical tolerance)
@@ -106,7 +129,8 @@ class UC_SSP:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
 
-        assert np.linalg.norm((p_sa - p_sa_hat), ord=1) <= beta
+        if np.abs(np.sum(p_sa)-1) > 1e-9:
+            raise ValueError(f"proba vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
 
         return p_sa
 
@@ -131,7 +155,6 @@ class UC_SSP:
                 else: # s != s_goal, take inner product minimization
                     p_sa_tilde = self.inner_minimization(p_sa_hat, beta_sa, rank)
 
-
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
 
@@ -145,33 +168,12 @@ class UC_SSP:
                     # In parallel, update the policy:
                     self.policy.map[state] = action
 
-            # todo: ?
             new_values[state] = min_cost
 
-            assert new_values[self.goal] == 0
 
+            assert new_values[self.goal] == 0
         return new_values
 
-    def compute_Q(self):
-        """compute the transition matrix of pi~ in the optimistic model p~ for any (s,s')"""
-        S = len(self.states)
-        Q = np.zeros(shape=(S, S), dtype=np.float32)
-        for s in self.states:
-            for s_ in self.states:
-                a = self.policy(s)
-                Q[s,s_] = self.p_tilde[s,a,s_]
-        return Q
-
-    def compute_H(self, Q, gamma):
-        # compute the infinite matrix norm. We assume only positive values in Q
-        Q_inf_norm = np.max(np.sum(Q, axis=1))
-        n = 1
-        while Q_inf_norm > gamma or n == 1:
-            Q = np.matmul(Q,Q)
-            Q_inf_norm = np.max(np.sum(Q, axis=1))
-            n += 1
-        print(n)
-        return n
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
         if j == 0:
@@ -185,9 +187,16 @@ class UC_SSP:
         beta = np.sqrt(
             (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
             / N_k_)  # bound for norm_1(|p^ - p~|)
+        # TODO: scale down beta
+        beta /= 10
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
+        # TODO: initialize v
         v = np.zeros(self.n_states)
+        # v = np.random.rand(self.n_states)
+        v.fill(1) # inf like
+        v[self.goal] = 0 # exclude the goal state
+
         next_v = self.bellman_operator(v, j, p_hat, beta)
         dv_norm = np.max(next_v-v)
         # value iteration step:
@@ -239,6 +248,7 @@ class UC_SSP:
             # if s==s_goal:
             self.N_k += nu_k
 
+        print(pi.map.reshape(3,3))
         return pi
 
 
@@ -246,26 +256,28 @@ if __name__ == "__main__":
     # algorithm related parameters:
     c_min = 0.1
     c_max = 0.1
-    DELTA = 0.95
+    DELTA = 0.85
     EPISODES = 100
 
     # env = gym.make("maze-random-10x10-plus-v0")
-    env = gym.make("maze-v0")
+    # env = gym.make("maze-v0")
+    env = gym.make("maze-sample-3x3-v0")
     RENDER_MAZE = True
     # util function
     _1D_state, _2D_state = state_transform(env.observation_space.high + 1)
     # env features
     GOAL_STATE = _1D_state(env.maze_view.goal)
-    N_STATES = (env.observation_space.high + 1)[0] ** 2
+    grid_size = (env.observation_space.high + 1)[0]
+    N_STATES = grid_size ** 2
     N_ACTIONS = env.action_space.n
     S_ = np.arange(N_STATES)
     S = np.delete(S_, GOAL_STATE)
     # assume we know the costs in advance:
     COSTS = np.zeros(shape=(N_STATES, N_ACTIONS), dtype=np.float32)
     # c(s,a)=const for any (s,a) in SxA
-    COSTS.fill(0.1)
+    COSTS.fill(c_min)
     # set c(s_goal,a)=0 for any a
-    COSTS[GOAL_STATE,:] = 0
+    COSTS[GOAL_STATE,:] = 0.0
 
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
@@ -277,5 +289,6 @@ if __name__ == "__main__":
                        costs=COSTS,
                        K=EPISODES)
     pi = algorithm.run()
+    plot_policy(pi.map.reshape(grid_size, grid_size))
     sys.exit()
-    # TODO: plot pi. compare to optimal pi
+
