@@ -117,7 +117,7 @@ class UC_SSP:
         # Sort the values by their values in ascending order
         rank = np.argsort(values)
 
-        for state in range(self.n_states):
+        for state in self.states_:
 
             min_cost = np.inf
             for action in range(self.n_actions):
@@ -126,12 +126,11 @@ class UC_SSP:
                 p_sa_hat = p_hat[state][action]  # vector of size S
                 beta_sa = beta[state][action]
 
-                # if state == self.goal: # p(.|s_goal,a) = 1_hot
-                #     p_sa_tilde = p_sa_hat
-                # else: # s != s_goal, take inner product minimization
-                #     p_sa_tilde = self.inner_minimization(p_sa_hat, beta_sa, rank)
+                if state == self.goal: # p(.|s_goal,a) = 1_hot
+                    p_sa_tilde = p_sa_hat
+                else: # s != s_goal, take inner product minimization
+                    p_sa_tilde = self.inner_minimization(p_sa_hat, beta_sa, rank)
 
-                p_sa_tilde = self.inner_minimization(p_sa_hat, beta_sa, rank)
 
                 # update optimistic model p~
                 self.p_tilde[state,action] = p_sa_tilde
@@ -171,6 +170,7 @@ class UC_SSP:
             Q = np.matmul(Q,Q)
             Q_inf_norm = np.max(np.sum(Q, axis=1))
             n += 1
+        print(n)
         return n
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
@@ -187,8 +187,6 @@ class UC_SSP:
             / N_k_)  # bound for norm_1(|p^ - p~|)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
-        # assert np.sum(p_hat, axis=2)
-
         v = np.zeros(self.n_states)
         next_v = self.bellman_operator(v, j, p_hat, beta)
         dv_norm = np.max(next_v-v)
@@ -200,6 +198,7 @@ class UC_SSP:
         # p~ and pi~ are updated during the value iteration in backend
         Q_tilde = self.compute_Q()
         H = self.compute_H(Q_tilde, gamma_kj)
+
         return self.policy, H
 
     def run(self):
@@ -237,7 +236,7 @@ class UC_SSP:
                 if not s_idx==self.goal:  # switch to phase 2 if goal not reached after H steps
                     self.N_k += nu_k
                     j += 1
-            # if done:
+            # if s==s_goal:
             self.N_k += nu_k
 
         return pi
@@ -247,10 +246,10 @@ if __name__ == "__main__":
     # algorithm related parameters:
     c_min = 0.1
     c_max = 0.1
-    DELTA = 0.1
+    DELTA = 0.95
     EPISODES = 100
 
-    # maze_env = gym.make("maze-random-10x10-plus-v0")
+    # env = gym.make("maze-random-10x10-plus-v0")
     env = gym.make("maze-v0")
     RENDER_MAZE = True
     # util function

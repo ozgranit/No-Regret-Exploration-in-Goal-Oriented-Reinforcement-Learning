@@ -76,7 +76,7 @@ class MazeEnv(gym.Env):
             probs = [0.1] * 5
             probs[action] = 0.6
             action_ = np.random.choice(5, p=probs)
-            if action_!=4: # if action==4 take no action
+            if action_!=4: # if action==4 stay in place
                 self.maze_view.move_robot(self.ACTION[action_])
         else:
             self.maze_view.move_robot(action)
