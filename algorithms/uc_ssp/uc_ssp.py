@@ -248,7 +248,6 @@ class UC_SSP:
             # if s==s_goal:
             self.N_k += nu_k
 
-        print(pi.map.reshape(3,3))
         return pi
 
 
@@ -257,7 +256,7 @@ if __name__ == "__main__":
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.9
-    EPISODES = 1
+    EPISODES = 100
     # env = gym.make("maze-random-10x10-plus-v0")
     # env = gym.make("maze-v0")
     env = gym.make("maze-sample-3x3-v0")
@@ -289,5 +288,4 @@ if __name__ == "__main__":
                        K=EPISODES)
     pi = algorithm.run()
     plot_policy(pi.map.reshape(grid_size, grid_size))
-    sys.exit()
 
