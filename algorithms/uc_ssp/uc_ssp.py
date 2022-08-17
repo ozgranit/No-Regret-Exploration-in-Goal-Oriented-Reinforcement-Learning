@@ -20,6 +20,15 @@ class BellmanCost:
         self.cost = costs
         self.goal = goal_state
 
+    def set_cost(self, state, action, cost):
+
+        # TODO: not required as we assume known costs. consider removing
+        if self.cost[state][action] == 0:
+            self.cost[state][action] = cost
+        else:
+            # already set this cost - make sure this is a deterministic cost MDP
+            assert np.abs(self.cost[state][action] - cost) < 1e-8
+
     def get_cost(self, state: int, action: int, j: int) -> float:
         if j != 0:
             if state != self.goal:
@@ -103,13 +112,9 @@ class UC_SSP:
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
-        # scale up if started with lower value
-        if np.sum(p_sa) < 1:
-            while np.sum(p_sa) < 1:
-                p_sa *= 1/np.sum(p_sa)
 
-        if abs(np.sum(p_sa)-1) > 1e-9:
-            raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
+        if abs(np.sum(p_sa) - 1) > 1e-9:
+            raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa), 2)}")
         # if np.linalg.norm((p_sa - p_sa_hat), ord=1) > beta:
         #     raise AssertionError(f"optimistic p is out of set bounds by "
         #                          f"{np.linalg.norm((p_sa - p_sa_hat), ord=1) - beta:.4f}.\n"
@@ -146,7 +151,7 @@ class UC_SSP:
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
                 # estimate MDP. compute p_hat estimates and beta:
-                p_sa_hat = self.get_p_hat(state, action)   # vector of size S
+                p_sa_hat = self.get_p_hat(state, action)  # vector of size S
                 beta_sa = self.get_beta(state, action)
 
                 # get best p in confidence set
@@ -158,10 +163,10 @@ class UC_SSP:
                 # update optimistic model p~
                 self.p_tilde[state, action] = p_sa_tilde
 
-                assert np.abs(np.sum(p_sa_tilde)-1) < 1e-9
+                assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9
 
                 # TODO: check if we should really run over all states in S'
-                expected_val = sum([p_sa_tilde[y]*values[y] for y in self.states_])
+                expected_val = sum([p_sa_tilde[y] * values[y] for y in self.states_])
                 Qsa = cost + expected_val
                 if Qsa < min_cost:
                     min_cost = Qsa
@@ -181,10 +186,10 @@ class UC_SSP:
         with modifications for UC-SSP as described according to the paper
         """
         if j == 0:
-            epsilon_kj = c_min / (2*t_kj)
+            epsilon_kj = c_min / (2 * t_kj)
             gamma_kj = 1 / np.sqrt(k)
         else:
-            epsilon_kj = 1 / (2*t_kj)
+            epsilon_kj = 1 / (2 * t_kj)
             gamma_kj = 1 / np.sqrt(G_kj)
 
         # TODO: initialize v
@@ -194,7 +199,7 @@ class UC_SSP:
         v[self.goal] = 0  # exclude the goal state
 
         next_v = self.bellman_operator(v, j)
-        dv_norm = np.max(next_v-v)
+        dv_norm = np.max(next_v - v)
         # value iteration step:
         while dv_norm > epsilon_kj:
             v = next_v
@@ -207,13 +212,12 @@ class UC_SSP:
         return self.policy, H
 
     def run(self):
-        """ RUN ALGORITHM """
-        G_kj = 0  # number of attempts in phase 2 of episode k
+
+        G_k_0 = 0  # number of attempts in phase 2 of episode k
         t = 1  # total env steps
         cost_log = []
 
         for k in range(1, self.K + 1):
-            print(f'Episode: {k}')
             j = 0  # num attempts of phase 2 in episode k
             episode_cost = 0
             s = env.reset()
@@ -224,18 +228,18 @@ class UC_SSP:
             while not state_idx == self.goal:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
-                G_kj += j
+                G_kj = G_k_0 + j
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
 
-                while t <= t_kj + H and not state_idx == self.goal:
+                while t <= t_kj + H and state_idx != self.goal:
                     action = pi(state_idx)
                     next_state, cost, _, _ = env.step(action)
                     episode_cost += cost
                     # assuming known costs
-                    # self.bellman_cost.set_cost(s_idx, a, c)
+                    self.bellman_cost.set_cost(state_idx, action, cost)
                     next_state_idx = _1D_state(next_state)
-                    nu_k[state_idx, action] += 1
-                    self.P_counts[state_idx, action, next_state_idx] += 1  # add transition count
+                    nu_k[state_idx][action] += 1
+                    self.P_counts[state_idx][action][next_state_idx] += 1  # add transition count
                     state_idx = next_state_idx
                     t += 1
 
@@ -247,9 +251,11 @@ class UC_SSP:
                     j += 1
             # if s==s_goal:
             self.N_k += nu_k
+            G_k_0 = G_kj
             cost_log.append(episode_cost)
+            print(f'Episode: {k}, Cost: {episode_cost:.1f}')
 
-       # plot cost
+        # plot cost
         plt.plot(cost_log)
         plt.ylabel('Cumulative cost')
         plt.xlabel('Episode')
@@ -260,6 +266,7 @@ class UC_SSP:
 
 def state_transform(grid_size: np.ndarray):
     """ util functions """
+
     def state_to_idx(state: np.ndarray) -> int:
         """return state 1D representation"""
         idx = state[1] * grid_size[0] + state[0]
@@ -279,7 +286,7 @@ if __name__ == "__main__":
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.9
-    EPISODES = 25
+    EPISODES = 50
     RENDER_MAZE = False
     # env = gym.make("maze-random-10x10-plus-v0")
     env = gym.make("maze-v0", enable_render=RENDER_MAZE)
