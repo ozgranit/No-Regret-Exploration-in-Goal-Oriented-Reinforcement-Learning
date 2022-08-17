@@ -161,9 +161,11 @@ class UC_SSP:
         return new_values
 
     def evi_ssp(self, k: int, j: int, t_kj: int, G_kj: int) -> Tuple[Policy, int]:
-        """EVI algorithm as described in
-         'Near-optimal Regret Bounds for Reinforcement Learning' T. Jaksch
-         with modifications for UC-SSP as described according to the paper"""
+        """
+        EVI algorithm as described in
+        'Near-optimal Regret Bounds for Reinforcement Learning' T. Jaksch
+        with modifications for UC-SSP as described according to the paper
+        """
         if j == 0:
             epsilon_kj = c_min / (2*t_kj)
             gamma_kj = 1 / np.sqrt(k)
@@ -205,33 +207,34 @@ class UC_SSP:
         t = 1  # total env steps
 
         for k in range(1, self.K + 1):
+            print(f'Episode: {k}')
             j = 0  # num attempts of phase 2 in episode k
             s = env.reset()
-            s_idx = _1D_state(s)
+            state_idx = _1D_state(s)
             if RENDER_MAZE:
                 env.render()
             # the environment returns done=True if s_==goal_state
-            while not s_idx == self.goal:
+            while not state_idx == self.goal:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
                 G_kj += j
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
 
-                while t <= t_kj + H and not s_idx == self.goal:
-                    a = pi(s_idx)
-                    s_, c, _, _ = env.step(a)
+                while t <= t_kj + H and not state_idx == self.goal:
+                    action = pi(state_idx)
+                    next_state, cost, _, _ = env.step(action)
                     # assuming known costs
                     # self.bellman_cost.set_cost(s_idx, a, c)
-                    s_idx_ = _1D_state(s_)
-                    nu_k[s_idx, a] += 1
-                    self.P_counts[s_idx, a, s_idx_] += 1  # add transition count
-                    s_idx = s_idx_  # t <-- t+1
+                    next_state_idx = _1D_state(next_state)
+                    nu_k[state_idx, action] += 1
+                    self.P_counts[state_idx, action, next_state_idx] += 1  # add transition count
+                    state_idx = next_state_idx
                     t += 1
 
                     if RENDER_MAZE:
                         env.render()
 
-                if not s_idx == self.goal:  # switch to phase 2 if goal not reached after H steps
+                if not state_idx == self.goal:  # switch to phase 2 if goal not reached after H steps
                     self.N_k += nu_k
                     j += 1
             # if s==s_goal:
@@ -265,7 +268,7 @@ if __name__ == "__main__":
     # env = gym.make("maze-random-10x10-plus-v0")
     env = gym.make("maze-v0")
     # env = gym.make("maze-sample-3x3-v0")
-    RENDER_MAZE = False
+    RENDER_MAZE = True
     # util function
     _1D_state, _2D_state = state_transform(env.observation_space.high + 1)
     # env features
@@ -293,3 +296,25 @@ if __name__ == "__main__":
                        K=EPISODES)
     pi = algorithm.run()
     plot_policy(pi.map.reshape(grid_size, grid_size))
+
+
+class WetLake(gym.Env):
+
+    def __init__(self):
+        self.lake = gym.make("FrozenLake-v0")
+        self.action_space = self.lake.action_space
+        self.observation_space = self.lake.observation_space
+
+    def step(self, action):
+        new_state, reward, done, info = env.step(action)
+        # do stuff to output
+
+        return new_state, reward, done, info
+
+    def reset(self):
+        init_state = self.lake.reset()
+
+        return init_state
+
+    def render(self, mode="human"):
+        self.lake.render()
