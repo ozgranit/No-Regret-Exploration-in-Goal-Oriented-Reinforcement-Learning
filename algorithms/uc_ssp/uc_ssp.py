@@ -128,7 +128,13 @@ class UC_SSP:
 
         return beta
 
-    def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray) -> np.ndarray:
+    def get_p_hat(self, state, action):
+        n_k_plus = max(1, self.N_k[state][action])
+        p_hat = self.P_counts[state][action] / n_k_plus
+
+        return p_hat
+
+    def bellman_operator(self, values: np.ndarray, j: int) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
         new_values = np.zeros_like(values)
         # Sort the values by their values in ascending order
@@ -139,10 +145,11 @@ class UC_SSP:
             min_cost = np.inf
             for action in range(self.n_actions):
                 cost = self.bellman_cost.get_cost(state, action, j)
-                # get best p in confidence set
-                p_sa_hat = p_hat[state][action]  # vector of size S
+                # estimate MDP. compute p_hat estimates and beta:
+                p_sa_hat = self.get_p_hat(state, action)   # vector of size S
                 beta_sa = self.get_beta(state, action)
 
+                # get best p in confidence set
                 if state == self.goal:  # p(.|s_goal,a) = 1_hot
                     p_sa_tilde = p_sa_hat
                 else:  # s != s_goal, take inner product minimization
@@ -179,9 +186,6 @@ class UC_SSP:
         else:
             epsilon_kj = 1 / (2*t_kj)
             gamma_kj = 1 / np.sqrt(G_kj)
-        # estimate MDP. compute p_hat estimates and beta:
-        N_k_ = np.maximum(1, self.N_k)  # 'N_k_plus'
-        p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
         # TODO: initialize v
         v = np.zeros(self.n_states)
@@ -189,12 +193,12 @@ class UC_SSP:
         # v = np.random.rand(self.n_states)*0.01
         v[self.goal] = 0  # exclude the goal state
 
-        next_v = self.bellman_operator(v, j, p_hat)
+        next_v = self.bellman_operator(v, j)
         dv_norm = np.max(next_v-v)
         # value iteration step:
         while dv_norm > epsilon_kj:
             v = next_v
-            next_v = self.bellman_operator(v, j, p_hat)
+            next_v = self.bellman_operator(v, j)
             dv_norm = np.max(next_v - v)
         # p~ and pi~ are updated during the value iteration in backend
         Q_tilde = self.compute_Q()
