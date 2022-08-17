@@ -1,13 +1,14 @@
 import gym
 import gym_maze
 import numpy as np
+import matplotlib.pyplot as plt
 
 from typing import Tuple
 from util import plot_policy
 
 
 class Policy:
-    def __init__(self, n_states, n_actions):
+    def __init__(self, n_states):
         self.map = np.zeros((n_states,), dtype=int)
 
     def __call__(self, state_idx: int) -> int:
@@ -18,15 +19,6 @@ class BellmanCost:
     def __init__(self, costs: np.ndarray, goal_state: int):
         self.cost = costs
         self.goal = goal_state
-
-    def set_cost(self, state, action, cost):
-
-        # TODO: not required as we assume known costs. consider removing
-        if self.cost[state][action] == 0:
-            self.cost[state][action] = cost
-        else:
-            # already set this cost - make sure this is a deterministic cost MDP
-            assert self.cost[state][action] == cost
 
     def get_cost(self, state: int, action: int, j: int) -> float:
         if j != 0:
@@ -67,7 +59,7 @@ class UC_SSP:
         # p~ optimistic model
         self.p_tilde = np.zeros_like(self.P_counts, dtype=np.float32)
 
-        self.policy = Policy(self.n_states, self.n_actions)
+        self.policy = Policy(self.n_states)
 
     def compute_Q(self):
         """compute the transition matrix of pi~ in the optimistic model p~ for any (s,s')"""
@@ -117,8 +109,11 @@ class UC_SSP:
                 p_sa *= 1/np.sum(p_sa)
 
         if abs(np.sum(p_sa)-1) > 1e-9:
-            raise ValueError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
-        assert np.linalg.norm((p_sa - p_sa_hat), ord=1) <= beta
+            raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
+        # if np.linalg.norm((p_sa - p_sa_hat), ord=1) > beta:
+        #     raise AssertionError(f"optimistic p is out of set bounds by "
+        #                          f"{np.linalg.norm((p_sa - p_sa_hat), ord=1) - beta:.4f}.\n"
+        #                          f"beta is {beta:.4f}")
 
         return p_sa
 
@@ -211,10 +206,12 @@ class UC_SSP:
         """ RUN ALGORITHM """
         G_kj = 0  # number of attempts in phase 2 of episode k
         t = 1  # total env steps
+        cost_log = []
 
         for k in range(1, self.K + 1):
             print(f'Episode: {k}')
             j = 0  # num attempts of phase 2 in episode k
+            episode_cost = 0
             s = env.reset()
             state_idx = _1D_state(s)
             if RENDER_MAZE:
@@ -229,6 +226,7 @@ class UC_SSP:
                 while t <= t_kj + H and not state_idx == self.goal:
                     action = pi(state_idx)
                     next_state, cost, _, _ = env.step(action)
+                    episode_cost += cost
                     # assuming known costs
                     # self.bellman_cost.set_cost(s_idx, a, c)
                     next_state_idx = _1D_state(next_state)
@@ -245,6 +243,13 @@ class UC_SSP:
                     j += 1
             # if s==s_goal:
             self.N_k += nu_k
+            cost_log.append(episode_cost)
+
+       # plot cost
+        plt.plot(cost_log)
+        plt.ylabel('Cumulative cost')
+        plt.xlabel('Episode')
+        plt.show()
 
         return pi
 
@@ -270,7 +275,7 @@ if __name__ == "__main__":
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.9
-    EPISODES = 50
+    EPISODES = 25
     RENDER_MAZE = False
     # env = gym.make("maze-random-10x10-plus-v0")
     env = gym.make("maze-v0", enable_render=RENDER_MAZE)
