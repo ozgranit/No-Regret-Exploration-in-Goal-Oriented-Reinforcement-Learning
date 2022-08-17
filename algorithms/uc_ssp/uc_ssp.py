@@ -117,11 +117,23 @@ class UC_SSP:
                 p_sa *= 1/np.sum(p_sa)
 
         if abs(np.sum(p_sa)-1) > 1e-9:
-            raise ValueError(f"proba vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
+            raise ValueError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa),2)}")
+        assert np.linalg.norm((p_sa - p_sa_hat), ord=1) <= beta
 
         return p_sa
 
-    def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray, beta: np.ndarray) -> np.ndarray:
+    def get_beta(self, state, action):
+        n_k_plus = max(1, self.N_k[state][action])
+        inner_log = (2 * self.n_actions * n_k_plus) / self.delta
+        numerator = 8 * self.n_states * np.log(inner_log)
+
+        beta = np.sqrt(numerator / n_k_plus)
+
+        # beta /= 50  # if not scaled down, won't work for sure
+
+        return beta
+
+    def bellman_operator(self, values: np.ndarray, j: int, p_hat: np.ndarray) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
         new_values = np.zeros_like(values)
         # Sort the values by their values in ascending order
@@ -134,7 +146,7 @@ class UC_SSP:
                 cost = self.bellman_cost.get_cost(state, action, j)
                 # get best p in confidence set
                 p_sa_hat = p_hat[state][action]  # vector of size S
-                beta_sa = beta[state][action]
+                beta_sa = self.get_beta(state, action)
 
                 if state == self.goal:  # p(.|s_goal,a) = 1_hot
                     p_sa_tilde = p_sa_hat
@@ -174,12 +186,6 @@ class UC_SSP:
             gamma_kj = 1 / np.sqrt(G_kj)
         # estimate MDP. compute p_hat estimates and beta:
         N_k_ = np.maximum(1, self.N_k)  # 'N_k_plus'
-        beta = np.sqrt(
-            (8 * self.n_states * np.log(2 * self.n_actions * N_k_ / self.delta))
-            / N_k_)  # bound for norm_1(|p^ - p~|)
-        # TODO: scaledown beta
-        beta /= 50  # if not scaled down, won't work for sure
-        # beta.fill(0.001)
         p_hat = self.P_counts / N_k_.reshape((self.n_states, self.n_actions, 1))
 
         # TODO: initialize v
@@ -188,12 +194,12 @@ class UC_SSP:
         # v = np.random.rand(self.n_states)*0.01
         v[self.goal] = 0  # exclude the goal state
 
-        next_v = self.bellman_operator(v, j, p_hat, beta)
+        next_v = self.bellman_operator(v, j, p_hat)
         dv_norm = np.max(next_v-v)
         # value iteration step:
         while dv_norm > epsilon_kj:
             v = next_v
-            next_v = self.bellman_operator(v, j, p_hat, beta)
+            next_v = self.bellman_operator(v, j, p_hat)
             dv_norm = np.max(next_v - v)
         # p~ and pi~ are updated during the value iteration in backend
         Q_tilde = self.compute_Q()
@@ -264,11 +270,11 @@ if __name__ == "__main__":
     c_min = 0.1
     c_max = 0.1
     DELTA = 0.9
-    EPISODES = 100
+    EPISODES = 50
+    RENDER_MAZE = False
     # env = gym.make("maze-random-10x10-plus-v0")
-    env = gym.make("maze-v0")
+    env = gym.make("maze-v0", enable_render=RENDER_MAZE)
     # env = gym.make("maze-sample-3x3-v0")
-    RENDER_MAZE = True
     # util function
     _1D_state, _2D_state = state_transform(env.observation_space.high + 1)
     # env features
