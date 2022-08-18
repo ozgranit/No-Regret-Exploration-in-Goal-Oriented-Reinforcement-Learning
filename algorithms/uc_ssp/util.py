@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_policy(policy):
+def plot_policy(policy, file_name):
     vec_map = {0: [0, 1], 1: [0, -1], 2: [1, 0], 3: [-1, 0]}
     x = np.arange(policy.shape[0])
     y = np.arange(policy.shape[1])
@@ -28,7 +28,7 @@ def plot_policy(policy):
     ax.set_xlim(0,len(x))
     ax.set_ylim(-len(y),0)
     ax.grid()
-    plt.show()
+    plt.savefig(file_name)
 
 
 def state_transform(grid_size=None):
@@ -88,7 +88,7 @@ def get_env_features(env):
            to_1D, to_2D
 
 
-def plot_values(values):
+def plot_values(values, file_name):
     fig, ax = plt.subplots()
     # Using matshow here just because it sets the ticks up nicely. imshow is faster.
     ax.matshow(values)
@@ -96,4 +96,4 @@ def plot_values(values):
     for (i, j), z in np.ndenumerate(values):
         ax.text(j, i, '{:0.2f}'.format(z), ha='center', va='center')
 
-    plt.show()
+    plt.savefig(file_name)
