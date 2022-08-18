@@ -275,8 +275,8 @@ class UC_SSP:
 if __name__ == "__main__":
     # algorithm related parameters:
     DELTA = 0.9
-    EPISODES = 100
-    RENDER = True
+    EPISODES = 50
+    RENDER = False
 
     # unccoment the right option:
     # ENV_NAME = 'frozen_lake'
@@ -286,8 +286,10 @@ if __name__ == "__main__":
         env = stochastic_env
     if ENV_NAME == 'maze':
         # env = gym.make("maze-random-10x10-plus-v0")
-        env = gym.make("maze-v0") # 5x5
+        env = gym.make("maze-v0", enable_render=RENDER)  # 5x5
         # env = gym.make("maze-sample-3x3-v0")
+    else:
+        raise ValueError("Unknown env name")
 
     # env features
     c_min, c_max, costs, non_goal_states, states, \
