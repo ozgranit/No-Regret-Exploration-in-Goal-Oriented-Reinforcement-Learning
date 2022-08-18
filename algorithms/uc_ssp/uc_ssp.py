@@ -42,7 +42,7 @@ class BellmanCost:
 
 class UC_SSP:
     def __init__(self, min_cost: float, max_cost: float, confidence: float,
-                 state_space_: np.ndarray, state_space: np.ndarray, n_actions: int,
+                 all_states: np.ndarray, non_goal_states: np.ndarray, n_actions: int,
                  goal: int, costs: np.ndarray, K: int):
         """
         UC-SSP
@@ -53,11 +53,11 @@ class UC_SSP:
         self.delta = confidence
 
         # Defining the environment related constants
-        self.n_states = len(state_space_)
+        self.n_states = len(all_states)
         self.n_actions = n_actions
         self.costs = costs
-        self.states_ = state_space_  # S'
-        self.states = state_space  # S (excluding s_goal)
+        self.all_states = all_states  # S'
+        self.non_goal_states = non_goal_states  # S (excluding s_goal)
         self.goal = goal  # goal_state
         self.bellman_cost = BellmanCost(self.costs, self.goal)
 
@@ -68,7 +68,6 @@ class UC_SSP:
         # set uniform probability for any (s,a)
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=int)
         # set p(s_goal|s_goal,a)=1 for any a
-        self.P_counts[self.goal, :, :] = 0 # set 0 for any other s' other than s_goal
         self.P_counts[self.goal, :, self.goal] = 1
         # p~ optimistic model
         self.p_tilde = np.zeros_like(self.P_counts, dtype=np.float32)
@@ -77,10 +76,10 @@ class UC_SSP:
 
     def compute_Q(self):
         """compute the transition matrix of pi~ in the optimistic model p~ for any (s,s')"""
-        S = len(self.states)
+        S = len(self.non_goal_states)
         Q = np.zeros(shape=(S, S), dtype=np.float32)
-        for s in self.states:
-            for s_ in self.states:
+        for s in self.non_goal_states:
+            for s_ in self.non_goal_states:
                 a = self.policy(s)
                 Q[s, s_] = self.p_tilde[s, a, s_]
         return Q
@@ -142,7 +141,7 @@ class UC_SSP:
         beta = np.sqrt(numerator / n_k_plus)
 
         if IMPROVED_UC_SSP:
-            beta /= 50  # if not scaled down, won't work for sure
+            beta /= 20  # if not scaled down, won't work for sure
 
         return beta
 
@@ -158,7 +157,7 @@ class UC_SSP:
         # Sort the values by their values in ascending order
         rank = np.argsort(values)
 
-        for state in self.states_:
+        for state in self.all_states:
 
             min_cost = np.inf
             for action in range(self.n_actions):
@@ -178,7 +177,7 @@ class UC_SSP:
 
                 assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9 or np.sum(p_sa_tilde) == 0
 
-                expected_val = sum([p_sa_tilde[y] * values[y] for y in self.states_])
+                expected_val = sum([p_sa_tilde[y] * values[y] for y in self.all_states])
                 Qsa = cost + expected_val
                 if Qsa < min_cost:
                     min_cost = Qsa
@@ -245,7 +244,7 @@ class UC_SSP:
                 G_kj = G_k_0 + j
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
 
-                while t <= t_kj + H and state_idx != self.goal:
+                while t <= t_kj + H and state_idx != self.goal: # work in phase 1
                     action = pi(state_idx)
                     next_state, cost, _, _ = env.step(action)
                     episode_cost += cost
@@ -259,8 +258,8 @@ class UC_SSP:
 
                     if RENDER:
                         env.render()
-
-                if not state_idx == self.goal:  # switch to phase 2 if goal not reached after H steps
+                # switch to phase 2 if goal not reached after H steps
+                if not state_idx == self.goal:
                     self.N_k += nu_k
                     j += 1
             # if s==s_goal:
@@ -369,8 +368,8 @@ if __name__ == "__main__":
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
                        confidence=DELTA,
-                       state_space_=states,
-                       state_space=non_goal_states,
+                       all_states=states,
+                       non_goal_states=non_goal_states,
                        n_actions=n_actions,
                        goal=goal_state,
                        costs=costs,

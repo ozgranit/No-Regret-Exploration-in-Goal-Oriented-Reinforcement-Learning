@@ -20,11 +20,11 @@ UP = 0
 # ACTION = ["N", "S", "E", "W"]
 
 # origin
-OUR_MAP = ["SHFFF",
-           "FHFFF",
-           "FHFHF",
-           "FFFHF",
-           "FFFHG"]
+OUR_MAP = ["SFFFF",
+           "FFFFF",
+           "FFHFF",
+           "FFFFF",
+           "FFFFG"]
 
 # avoid lower half
 # OUR_MAP = ["SFFFF",
