@@ -31,6 +31,7 @@ def plot_policy(policy):
     ax.grid()
     plt.show()
 
+
 def state_transform(grid_size=None):
     """ util functions """
     def state_to_idx(state) -> int:
@@ -47,6 +48,7 @@ def state_transform(grid_size=None):
         return np.array([x, y], dtype=int)
 
     return state_to_idx, idx_to_state
+
 
 def get_env_features(env):
     if env.metadata['name'] == 'maze':
@@ -85,3 +87,14 @@ def get_env_features(env):
     return c_min, c_max, costs, non_goal_states, states, \
            goal_state, grid_size, n_actions, n_states, \
            to_1D, to_2D
+
+
+def plot_values(values):
+    fig, ax = plt.subplots()
+    # Using matshow here just because it sets the ticks up nicely. imshow is faster.
+    ax.matshow(values)
+
+    for (i, j), z in np.ndenumerate(values):
+        ax.text(j, i, '{:0.2f}'.format(z), ha='center', va='center')
+
+    plt.show()
