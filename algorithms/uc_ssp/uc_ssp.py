@@ -31,7 +31,8 @@ class BellmanCost:
             assert np.abs(self.cost[state][action] - cost) < 1e-8
 
     def get_cost(self, state: int, action: int, j: int) -> float:
-        # j = 0
+        if CLASSIC_VALUE_ITERATION:
+            j = 0
         if j != 0:
             if state != self.goal:
                 return 1.0
@@ -108,7 +109,8 @@ class UC_SSP:
         Return:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
-        # return p_sa_hat
+        if CLASSIC_VALUE_ITERATION:
+            return p_sa_hat
         p_sa = np.array(p_sa_hat)
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
         rank_dup = list(rank)
@@ -117,9 +119,11 @@ class UC_SSP:
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
-        # scale up if started with lower value
-        # if np.sum(p_sa) < 1:
-        #     p_sa *= 1/np.sum(p_sa)
+
+        if IMPROVED_UC_SSP:
+            # scale up if started with lower value
+            if np.sum(p_sa) < 1:
+                p_sa *= 1/np.sum(p_sa)
 
         if abs(np.sum(p_sa) - 1) > 1e-9:
             raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa), 2)}")
@@ -137,7 +141,8 @@ class UC_SSP:
 
         beta = np.sqrt(numerator / n_k_plus)
 
-        beta /= 1  # if not scaled down, won't work for sure
+        if IMPROVED_UC_SSP:
+            beta /= 50  # if not scaled down, won't work for sure
 
         return beta
 
@@ -319,6 +324,14 @@ def run_policy(opt_pi, env, episodes):
 
 
 if __name__ == "__main__":
+
+    # decide what type of algorithm
+    CLASSIC_VALUE_ITERATION = False
+    ORIG_UC_SSP = False
+    IMPROVED_UC_SSP = True
+    # pick only 1
+    assert [CLASSIC_VALUE_ITERATION, ORIG_UC_SSP, IMPROVED_UC_SSP].count(True) == 1
+
     # algorithm related parameters:
     DELTA = 0.9
     EPISODES = 150
