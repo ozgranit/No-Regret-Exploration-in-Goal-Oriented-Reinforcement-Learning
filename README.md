@@ -8,8 +8,12 @@ Requirements:
 - Pyglet (OpenGL 3D graphics)
 - The provided packages
 
-Install the experiment environments by entering to 'fozen_lake_env' and 'maze_env' and the running the following:
+Install the experiment environments by running the following:
 
 ```
+cd fozen_lake_env
+pip install -e .
+cd ..
+cd maze_env
 pip install -e .
 ```
