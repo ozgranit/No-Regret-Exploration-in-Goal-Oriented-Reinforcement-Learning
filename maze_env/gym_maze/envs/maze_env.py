@@ -9,7 +9,7 @@ from gym_maze.envs.maze_view_2d import MazeView2D
 class MazeEnv(gym.Env):
     metadata = {
         "render.modes": ["human", "rgb_array"],
-    }
+    "name": "maze"}
 
     ACTION = ["N", "S", "E", "W"]
 
@@ -72,12 +72,13 @@ class MazeEnv(gym.Env):
 
     def step(self, action):
         if isinstance(action, int):
-            # take wrong action with prob=0.2
+            # take wrong action with prob=0.4
             probs = [0.1] * 5
             probs[action] = 0.6
             action_ = np.random.choice(5, p=probs)
             if action_!=4: # if action==4 stay in place
                 self.maze_view.move_robot(self.ACTION[action_])
+            # otherwise take no action
         else:
             self.maze_view.move_robot(action)
 
