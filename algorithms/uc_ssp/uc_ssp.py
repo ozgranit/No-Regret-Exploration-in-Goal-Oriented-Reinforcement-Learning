@@ -218,8 +218,10 @@ class UC_SSP:
         Q_tilde = self.compute_Q()
         H = self.compute_H(Q_tilde, gamma_kj)
 
-        if k % 50 == 0:
+        if k % EPISODES == 0:
             plot_values(next_v.reshape(grid_size, grid_size))
+            state_count = np.array([np.sum(self.P_counts[s]) for s in self.all_states])
+            plot_values(state_count.reshape(grid_size, grid_size))
             plot_policy(self.policy.map.reshape(grid_size, grid_size))
 
         return self.policy, H
@@ -336,8 +338,8 @@ def get_algo_label():
 if __name__ == "__main__":
 
     # decide what type of algorithm
-    CLASSIC_VALUE_ITERATION = False
-    ORIG_UC_SSP = True
+    CLASSIC_VALUE_ITERATION = True
+    ORIG_UC_SSP = False
     IMPROVED_UC_SSP = False
     # pick only 1
     assert [CLASSIC_VALUE_ITERATION, ORIG_UC_SSP, IMPROVED_UC_SSP].count(True) == 1
@@ -352,8 +354,8 @@ if __name__ == "__main__":
     # ENV_NAME = 'maze'
 
     if ENV_NAME == 'frozen_lake':
-        # env = stochastic_env
-        env = deterministic_env
+        env = stochastic_env
+        # env = deterministic_env
     elif ENV_NAME == 'maze':
         # env = gym.make("maze-random-10x10-plus-v0")
         env = gym.make("maze-v0", enable_render=RENDER)  # 5x5
@@ -382,9 +384,12 @@ if __name__ == "__main__":
     opt_pi = load_policy()
     opt_cost_log = run_policy(opt_pi, env, EPISODES)
 
+    algo_label = get_algo_label()
     regret = np.sum(cost_log) - np.sum(opt_cost_log)
     plt.plot(opt_cost_log, label=f"opt policy, overall regret={regret: .2f}")
     plt.plot(cost_log, label=get_algo_label())
     plt.legend()
-    plt.show()
 
+    save_path = pathlib.Path(__file__).parent.resolve()
+    file_name = f'opt_vs_{algo_label}.png'
+    plt.savefig(save_path / file_name)
