@@ -279,12 +279,12 @@ if __name__ == "__main__":
     RENDER = False
 
     # unccoment the right option:
-    # ENV_NAME = 'frozen_lake'
-    ENV_NAME = 'maze'
+    ENV_NAME = 'frozen_lake'
+    # ENV_NAME = 'maze'
 
     if ENV_NAME == 'frozen_lake':
         env = stochastic_env
-    if ENV_NAME == 'maze':
+    elif ENV_NAME == 'maze':
         # env = gym.make("maze-random-10x10-plus-v0")
         env = gym.make("maze-v0", enable_render=RENDER)  # 5x5
         # env = gym.make("maze-sample-3x3-v0")
