@@ -3,7 +3,7 @@ Implementation of the algorithm described in “No-regret Exploration in Goal-Or
 
 We perform the experiments on two different grid-world gym style environments:
 - [Maze](https://github.com/MattChanTK/gym-maze)
-- [Frozen Lake](https://www.gymlibrary.ml/environments/toy_text/frozen_lake/) - a modified version where the game doesn't ends when reaching a hole.
+- [Frozen Lake](https://www.gymlibrary.ml/environments/toy_text/frozen_lake/) - a modified version of the OpenAI's enviroement. Here, the game doesn't end when reaching a hole.
 
 Requirements:
 - Python 3.5+
@@ -21,3 +21,5 @@ cd ..
 cd maze_env
 pip install -e .
 ```
+
+To run the experiment, just open `algorithms/uc_ssp/uc_ssp.py` and modify the parameters according to the comments at the bottom and rum.
