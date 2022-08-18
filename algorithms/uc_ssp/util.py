@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_policy(policy, file_name):
+    plt.clf()
     vec_map = {0: [0, 1], 1: [0, -1], 2: [1, 0], 3: [-1, 0]}
     x = np.arange(policy.shape[0])
     y = np.arange(policy.shape[1])
@@ -89,6 +90,7 @@ def get_env_features(env):
 
 
 def plot_values(values, file_name):
+    plt.clf()
     fig, ax = plt.subplots()
     # Using matshow here just because it sets the ticks up nicely. imshow is faster.
     ax.matshow(values)

@@ -274,6 +274,7 @@ class UC_SSP:
             print(f'Episode: {k}, Cost: {episode_cost:.1f}')
 
         # plot cost
+        plt.clf()
         plt.plot(cost_log)
         plt.ylabel('Cumulative cost')
         plt.xlabel('Episode')
@@ -391,6 +392,7 @@ if __name__ == "__main__":
     opt_cost_log = run_policy(opt_pi, env, EPISODES)
 
     regret = np.sum(cost_log) - np.sum(opt_cost_log)
+    plt.clf()
     plt.plot(opt_cost_log, label=f"opt policy, overall regret={regret: .2f}")
     plt.plot(cost_log, label=get_algo_label())
     plt.legend()
