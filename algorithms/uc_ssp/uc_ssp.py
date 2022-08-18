@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Tuple
-from util import plot_policy
+from util import plot_policy, plot_values
 
 
 class Policy:
@@ -30,6 +30,7 @@ class BellmanCost:
             assert np.abs(self.cost[state][action] - cost) < 1e-8
 
     def get_cost(self, state: int, action: int, j: int) -> float:
+        j = 0
         if j != 0:
             if state != self.goal:
                 return 1.0
@@ -104,6 +105,7 @@ class UC_SSP:
         Return:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
+        return p_sa_hat
         p_sa = np.array(p_sa_hat)
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
         rank_dup = list(rank)
@@ -163,7 +165,7 @@ class UC_SSP:
                 # update optimistic model p~
                 self.p_tilde[state, action] = p_sa_tilde
 
-                assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9
+                assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9 or np.sum(p_sa_tilde) == 0
 
                 # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y] * values[y] for y in self.states_])
@@ -194,20 +196,23 @@ class UC_SSP:
 
         # TODO: initialize v
         v = np.zeros(self.n_states)
-        v.fill(0.1)
-        # v = np.random.rand(self.n_states)*0.01
-        v[self.goal] = 0  # exclude the goal state
+        # v.fill(0.1)
+        # # v = np.random.rand(self.n_states)*0.01
+        # v[self.goal] = 0  # exclude the goal state
 
         next_v = self.bellman_operator(v, j)
-        dv_norm = np.max(next_v - v)
         # value iteration step:
-        while dv_norm > epsilon_kj:
+        while np.max(np.abs(next_v - v)) > epsilon_kj:
             v = next_v
             next_v = self.bellman_operator(v, j)
-            dv_norm = np.max(next_v - v)
+
         # p~ and pi~ are updated during the value iteration in backend
         Q_tilde = self.compute_Q()
         H = self.compute_H(Q_tilde, gamma_kj)
+
+        if k % 50 == 0:
+            plot_values(next_v.reshape(grid_size, grid_size))
+            plot_policy(self.policy.map.reshape(grid_size, grid_size))
 
         return self.policy, H
 

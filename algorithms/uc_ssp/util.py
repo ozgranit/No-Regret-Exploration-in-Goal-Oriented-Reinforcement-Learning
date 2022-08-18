@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 vec_map = {0: [0, 1], 1: [0, -1], 2: [1, 0] , 3: [-1, 0]}
 
+
 def plot_policy(policy):
     x = np.arange(policy.shape[0])
     y = np.arange(policy.shape[1])
@@ -28,4 +29,15 @@ def plot_policy(policy):
     ax.set_xlim(0,len(x))
     ax.set_ylim(-len(y),0)
     ax.grid()
+    plt.show()
+
+
+def plot_values(values):
+    fig, ax = plt.subplots()
+    # Using matshow here just because it sets the ticks up nicely. imshow is faster.
+    ax.matshow(values)
+
+    for (i, j), z in np.ndenumerate(values):
+        ax.text(j, i, '{:0.2f}'.format(z), ha='center', va='center')
+
     plt.show()
