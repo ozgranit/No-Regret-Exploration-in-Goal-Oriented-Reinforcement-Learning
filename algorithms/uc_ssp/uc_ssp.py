@@ -219,10 +219,12 @@ class UC_SSP:
         H = self.compute_H(Q_tilde, gamma_kj)
 
         if k % EPISODES == 0:
-            plot_values(next_v.reshape(grid_size, grid_size))
+            # save some plots
+            save_path = pathlib.Path(__file__).parent.resolve()
+            plot_values(next_v.reshape(grid_size, grid_size), save_path / f'{algo_label}_values.png')
+
             state_count = np.array([np.sum(self.P_counts[s]) for s in self.all_states])
-            plot_values(state_count.reshape(grid_size, grid_size))
-            plot_policy(self.policy.map.reshape(grid_size, grid_size))
+            plot_values(state_count.reshape(grid_size, grid_size), save_path / f'{algo_label}_state_count.png')
 
         return self.policy, H
 
@@ -378,18 +380,19 @@ if __name__ == "__main__":
                        K=EPISODES)
 
     pi, cost_log = algorithm.run()
-    plot_policy(pi.map.reshape(grid_size, grid_size))
+
+    save_path = pathlib.Path(__file__).parent.resolve()
+    algo_label = get_algo_label()
+    plot_policy(pi.map.reshape(grid_size, grid_size), save_path / f'{algo_label}_policy.png')
 
     # compare to optimal
     opt_pi = load_policy()
     opt_cost_log = run_policy(opt_pi, env, EPISODES)
 
-    algo_label = get_algo_label()
     regret = np.sum(cost_log) - np.sum(opt_cost_log)
     plt.plot(opt_cost_log, label=f"opt policy, overall regret={regret: .2f}")
     plt.plot(cost_log, label=get_algo_label())
     plt.legend()
 
-    save_path = pathlib.Path(__file__).parent.resolve()
     file_name = f'opt_vs_{algo_label}.png'
     plt.savefig(save_path / file_name)
