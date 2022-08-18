@@ -221,6 +221,7 @@ class UC_SSP:
         if k % EPISODES == 0:
             # save some plots
             save_path = pathlib.Path(__file__).parent.resolve()
+            algo_label = get_algo_label()
             plot_values(next_v.reshape(grid_size, grid_size), save_path / f'{algo_label}_values.png')
 
             state_count = np.array([np.sum(self.P_counts[s]) for s in self.all_states])
