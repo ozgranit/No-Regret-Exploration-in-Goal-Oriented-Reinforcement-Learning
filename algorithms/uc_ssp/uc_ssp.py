@@ -275,14 +275,15 @@ if __name__ == "__main__":
     # algorithm related parameters:
     DELTA = 0.9
     EPISODES = 50
-    RENDER = False
+    RENDER = True
 
     # unccoment the right option:
     ENV_NAME = 'frozen_lake'
     # ENV_NAME = 'maze'
 
     if ENV_NAME == 'frozen_lake':
-        env = stochastic_env
+        # env = stochastic_env
+        env = deterministic_env
     elif ENV_NAME == 'maze':
         # env = gym.make("maze-random-10x10-plus-v0")
         env = gym.make("maze-v0", enable_render=RENDER)  # 5x5

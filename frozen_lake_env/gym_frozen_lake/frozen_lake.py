@@ -20,11 +20,17 @@ UP = 0
 # ACTION = ["N", "S", "E", "W"]
 
 
-OUR_MAP = ["SHFFF",
-           "FHFFF",
-           "FHFHF",
-           "FFFHF",
-           "FFFHG"]
+# OUR_MAP = ["SHFFF",
+#            "FHFFF",
+#            "FHFHF",
+#            "FFFHF",
+#            "FFFHG"]
+
+OUR_MAP = ["SHHHH",
+           "FHHHH",
+           "FFHHH",
+           "FFFFH",
+           "FFFFG"]
 
 
 MAPS = {
