@@ -171,7 +171,6 @@ class UC_SSP:
 
                 assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9 or np.sum(p_sa_tilde) == 0
 
-                # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y] * values[y] for y in self.states_])
                 Qsa = cost + expected_val
                 if Qsa < min_cost:
