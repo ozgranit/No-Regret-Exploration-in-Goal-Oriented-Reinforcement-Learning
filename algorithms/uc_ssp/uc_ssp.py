@@ -1,11 +1,13 @@
 import gym
+import pickle
+import pathlib
 import gym_maze
-from gym_frozen_lake import stochastic_env, deterministic_env
 import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Tuple
 from util import plot_policy, plot_values, get_env_features
+from gym_frozen_lake import stochastic_env, deterministic_env
 
 
 class Policy:
@@ -268,16 +270,61 @@ class UC_SSP:
         plt.xlabel('Episode')
         plt.show()
 
-        return pi
+        return pi, cost_log
+
+
+def save_policy(opt_pi):
+
+    save_path = pathlib.Path(__file__).parent.resolve()
+    file_name = 'frozen_lake_opt_policy.pkl'
+    # file_name = 'maze_5x5_opt_policy.pkl'
+
+    with open(save_path / file_name, 'wb') as file:
+        pickle.dump(opt_pi, file)
+
+
+def load_policy():
+
+    save_path = pathlib.Path(__file__).parent.resolve()
+    file_name = 'frozen_lake_opt_policy.pkl'
+    # file_name = 'maze_5x5_opt_policy.pkl'
+
+    with open(save_path / file_name, 'rb') as file:
+        opt_pi = pickle.load(file)
+
+    return opt_pi
+
+
+def run_policy(opt_pi, env, episodes):
+
+    cost_log = []
+
+    for episode in range(episodes):
+        episode_cost = 0
+        done = False
+        s = env.reset()
+        state_idx = to_1D(s)
+
+        while not done:
+            action = opt_pi(state_idx)
+            next_state, cost, done, _ = env.step(action)
+            episode_cost += cost
+
+            next_state_idx = to_1D(next_state)
+            state_idx = next_state_idx
+
+        cost_log.append(episode_cost)
+
+    return cost_log
 
 
 if __name__ == "__main__":
     # algorithm related parameters:
     DELTA = 0.9
-    EPISODES = 50
-    RENDER = True
+    EPISODES = 150
+    RENDER = False
 
-    # unccoment the right option:
+    # uncomment the right option:
     ENV_NAME = 'frozen_lake'
     # ENV_NAME = 'maze'
 
@@ -305,5 +352,16 @@ if __name__ == "__main__":
                        costs=costs,
                        K=EPISODES)
 
-    pi = algorithm.run()
+    pi, cost_log = algorithm.run()
     plot_policy(pi.map.reshape(grid_size, grid_size))
+
+    # compare to optimal
+    opt_pi = load_policy()
+    opt_cost_log = run_policy(opt_pi, env, EPISODES)
+
+    regret = np.sum(cost_log) - np.sum(opt_cost_log)
+    plt.plot(opt_cost_log, label=f"opt policy, overall regret={regret: .2f}")
+    plt.plot(cost_log, label="algorithm policy")
+    plt.legend()
+    plt.show()
+
