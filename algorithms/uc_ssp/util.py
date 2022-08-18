@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 def plot_policy(policy):
     vec_map = {0: [0, 1], 1: [0, -1], 2: [1, 0], 3: [-1, 0]}
     x = np.arange(policy.shape[0])

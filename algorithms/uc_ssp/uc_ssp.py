@@ -323,12 +323,23 @@ def run_policy(opt_pi, env, episodes):
     return cost_log
 
 
+def get_algo_label():
+    if CLASSIC_VALUE_ITERATION:
+        return "Classic Value Iteration"
+
+    elif ORIG_UC_SSP:
+        return "UC_SSP"
+
+    elif IMPROVED_UC_SSP:
+        return "Modified UC_SSP"
+
+
 if __name__ == "__main__":
 
     # decide what type of algorithm
     CLASSIC_VALUE_ITERATION = False
-    ORIG_UC_SSP = False
-    IMPROVED_UC_SSP = True
+    ORIG_UC_SSP = True
+    IMPROVED_UC_SSP = False
     # pick only 1
     assert [CLASSIC_VALUE_ITERATION, ORIG_UC_SSP, IMPROVED_UC_SSP].count(True) == 1
 
@@ -374,7 +385,7 @@ if __name__ == "__main__":
 
     regret = np.sum(cost_log) - np.sum(opt_cost_log)
     plt.plot(opt_cost_log, label=f"opt policy, overall regret={regret: .2f}")
-    plt.plot(cost_log, label="algorithm policy")
+    plt.plot(cost_log, label=get_algo_label())
     plt.legend()
     plt.show()
 
