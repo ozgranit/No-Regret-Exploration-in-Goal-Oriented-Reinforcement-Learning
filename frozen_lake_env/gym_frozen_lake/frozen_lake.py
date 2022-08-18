@@ -235,12 +235,19 @@ class FrozenLakeEnv(DiscreteEnv):
                         self.costs[s, a] = 0
                     else:
                         if is_slippery:
-                            for b in [(a - 1) % 4, a, (a + 1) % 4]:
-                                next_state, cost, done = update_probability_matrix(row, col, b)
-                                li.append(
-                                    (1.0 / 3.0, next_state, cost, done)
-                                )
-                                self.costs[s, b] = cost
+                            for b in range(4):
+                                if a==b:
+                                    next_state, cost, done = update_probability_matrix(row, col, b)
+                                    li.append(
+                                        (2.0 / 3.0, next_state, cost, done)
+                                    )
+                                    self.costs[s, b] = cost
+                                else:
+                                    next_state, cost, done = update_probability_matrix(row, col, b)
+                                    li.append(
+                                        (1.0 / 9.0, next_state, cost, done)
+                                    )
+                                    self.costs[s, b] = cost
                         else:
                             next_state, cost, done = update_probability_matrix(row, col, a)
                             li.append(
