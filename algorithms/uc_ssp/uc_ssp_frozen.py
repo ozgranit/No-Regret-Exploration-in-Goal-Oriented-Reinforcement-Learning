@@ -1,5 +1,5 @@
 import gym
-import gym_maze
+from gym_frozen_lake import stochastic_env, deterministic_env
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -21,8 +21,6 @@ class BellmanCost:
         self.goal = goal_state
 
     def set_cost(self, state, action, cost):
-
-        # TODO: not required as we assume known costs. consider removing
         if self.cost[state][action] == 0:
             self.cost[state][action] = cost
         else:
@@ -64,7 +62,7 @@ class UC_SSP:
         # empirical (s,a,s') transition counts
         self.P_counts = np.zeros(shape=(self.n_states, self.n_actions, self.n_states), dtype=int)
         # set p(s_goal|s_goal,a)=1 for any a
-        self.P_counts[self.goal, :, self.goal] = 1  # this ensures that we get prob 1 as needed.
+        self.P_counts[self.goal, :, self.goal] = 1
         # p~ optimistic model
         self.p_tilde = np.zeros_like(self.P_counts, dtype=np.float32)
 
@@ -82,7 +80,7 @@ class UC_SSP:
 
     @staticmethod
     def compute_H(Q, gamma):
-        # compute the infinite matrix norm. We assume only positive values in Q
+        ''' compute the infinite matrix norm. We assume only positive values in Q '''
         Q_inf_norm = np.max(np.sum(Q, axis=1))
         n = 1
         while Q_inf_norm > gamma or n == 1:
@@ -113,6 +111,11 @@ class UC_SSP:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
 
+        # scale up if started with lower value
+        if np.sum(p_sa) < 1:
+            while np.sum(p_sa) < 1:
+                p_sa *= 1 / np.sum(p_sa)
+
         if abs(np.sum(p_sa) - 1) > 1e-9:
             raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa), 2)}")
         # if np.linalg.norm((p_sa - p_sa_hat), ord=1) > beta:
@@ -129,7 +132,7 @@ class UC_SSP:
 
         beta = np.sqrt(numerator / n_k_plus)
 
-        # beta /= 50  # if not scaled down, won't work for sure
+        beta /= 50  # if not scaled down, won't work for sure
 
         return beta
 
@@ -165,7 +168,6 @@ class UC_SSP:
 
                 assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9
 
-                # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y] * values[y] for y in self.states_])
                 Qsa = cost + expected_val
                 if Qsa < min_cost:
@@ -175,7 +177,8 @@ class UC_SSP:
 
             new_values[state] = min_cost
 
-            assert new_values[self.goal] == 0
+            if new_values[self.goal] != 0:
+                assert new_values[self.goal] == 0
 
         return new_values
 
@@ -195,11 +198,10 @@ class UC_SSP:
         # TODO: initialize v
         v = np.zeros(self.n_states)
         v.fill(0.1)
-        # v = np.random.rand(self.n_states)*0.01
         v[self.goal] = 0  # exclude the goal state
 
         next_v = self.bellman_operator(v, j)
-        dv_norm = np.max(next_v - v)
+        dv_norm = np.max(np.abs(next_v - v))
         # value iteration step:
         while dv_norm > epsilon_kj:
             v = next_v
@@ -220,33 +222,31 @@ class UC_SSP:
         for k in range(1, self.K + 1):
             j = 0  # num attempts of phase 2 in episode k
             episode_cost = 0
-            s = env.reset()
-            state_idx = _1D_state(s)
-            if RENDER_MAZE:
+            state = env.reset()
+            if RENDER:
                 env.render()
             # the environment returns done=True if s_==goal_state
-            while not state_idx == self.goal:
+            while not state == self.goal:
                 t_kj = t  # time-step of last j attempt (unless j=0)
                 nu_k = np.zeros_like(self.N_k)  # state-action counter
                 G_kj = G_k_0 + j
                 pi, H = self.evi_ssp(k, j, t_kj, G_kj)
-
-                while t <= t_kj + H and state_idx != self.goal:
-                    action = pi(state_idx)
+                print(H)
+                while t <= t_kj + H and state != self.goal:
+                    action = pi(state)
                     next_state, cost, _, _ = env.step(action)
                     episode_cost += cost
                     # assuming known costs
-                    self.bellman_cost.set_cost(state_idx, action, cost)
-                    next_state_idx = _1D_state(next_state)
-                    nu_k[state_idx][action] += 1
-                    self.P_counts[state_idx][action][next_state_idx] += 1  # add transition count
-                    state_idx = next_state_idx
+                    self.bellman_cost.set_cost(state, action, cost)
+                    nu_k[state][action] += 1
+                    self.P_counts[state][action][next_state] += 1  # add transition count
+                    state = next_state
                     t += 1
 
-                    if RENDER_MAZE:
+                    if RENDER:
                         env.render()
 
-                if not state_idx == self.goal:  # switch to phase 2 if goal not reached after H steps
+                if not state == self.goal:  # switch to phase 2 if goal not reached after H steps
                     self.N_k += nu_k
                     j += 1
             # if s==s_goal:
@@ -264,48 +264,23 @@ class UC_SSP:
         return pi
 
 
-def state_transform(grid_size: np.ndarray):
-    """ util functions """
-
-    def state_to_idx(state: np.ndarray) -> int:
-        """return state 1D representation"""
-        idx = state[1] * grid_size[0] + state[0]
-        return int(idx)
-
-    def idx_to_state(idx: int) -> np.ndarray:
-        """return state 2D coordinate representation"""
-        x = idx % grid_size[0]
-        y = np.floor(idx / grid_size[0])
-        return np.array([x, y], dtype=int)
-
-    return state_to_idx, idx_to_state
-
-
 if __name__ == "__main__":
     # algorithm related parameters:
     c_min = 0.1
-    c_max = 0.1
+    c_max = 0.4
     DELTA = 0.9
-    EPISODES = 50
-    RENDER_MAZE = False
-    # env = gym.make("maze-random-10x10-plus-v0")
-    env = gym.make("maze-v0", enable_render=RENDER_MAZE)
-    # env = gym.make("maze-sample-3x3-v0")
-    # util function
-    _1D_state, _2D_state = state_transform(env.observation_space.high + 1)
+    EPISODES = 100
+    RENDER = False
+    env = stochastic_env
     # env features
-    GOAL_STATE = _1D_state(env.maze_view.goal)
-    grid_size = (env.observation_space.high + 1)[0]
-    N_STATES = grid_size ** 2
-    N_ACTIONS = env.action_space.n
+    GOAL_STATE = env.observation_space.n -1
+    grid_size = int(np.sqrt(env.observation_space.n))
+    N_STATES = env.nS
+    N_ACTIONS = env.nA
     S_ = np.arange(N_STATES)
     S = np.delete(S_, GOAL_STATE)
     # assume we know the costs in advance:
-    COSTS = np.zeros(shape=(N_STATES, N_ACTIONS), dtype=np.float32)
-    # c(s,a)=const for any (s,a) in SxA
-    COSTS.fill(c_min)
-    # set c(s_goal,a)=0 for any a
-    COSTS[GOAL_STATE, :] = 0.0
+    COSTS = env.get_costs()
 
     algorithm = UC_SSP(min_cost=c_min,
                        max_cost=c_max,
@@ -318,25 +293,3 @@ if __name__ == "__main__":
                        K=EPISODES)
     pi = algorithm.run()
     plot_policy(pi.map.reshape(grid_size, grid_size))
-
-
-class WetLake(gym.Env):
-
-    def __init__(self):
-        self.lake = gym.make("FrozenLake-v0")
-        self.action_space = self.lake.action_space
-        self.observation_space = self.lake.observation_space
-
-    def step(self, action):
-        new_state, reward, done, info = env.step(action)
-        # do stuff to output
-
-        return new_state, reward, done, info
-
-    def reset(self):
-        init_state = self.lake.reset()
-
-        return init_state
-
-    def render(self, mode="human"):
-        self.lake.render()
