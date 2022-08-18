@@ -219,7 +219,7 @@ class FrozenLakeEnv(DiscreteEnv):
             if letter == b"G":
                 cost = 0.0
             if letter == b"H":
-                cost = 0.3
+                cost = 0.5
             else:
                 cost = 0.1
             return newstate, cost, done
