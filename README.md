@@ -1,6 +1,8 @@
 # No-Regret-Exploration-in-Goal-Oriented-Reinforcement-Learning
 Implementation of the algorithm described in “No-regret Exploration in Goal-Oriented Reinforcement Learning”, Tarbouriech et al., 2019.
 
+We perform the experiments on two different grid-world gym style environments:
+
 Requirements:
 - Python 3.5+
 - OpenAI Gym
