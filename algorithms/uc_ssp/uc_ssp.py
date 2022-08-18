@@ -1,11 +1,13 @@
 import gym
+import pickle
+import pathlib
 import gym_maze
-from gym_frozen_lake import stochastic_env, deterministic_env
 import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Tuple
 from util import plot_policy, plot_values, get_env_features
+from gym_frozen_lake import stochastic_env, deterministic_env
 
 
 class Policy:
@@ -29,7 +31,8 @@ class BellmanCost:
             assert np.abs(self.cost[state][action] - cost) < 1e-8
 
     def get_cost(self, state: int, action: int, j: int) -> float:
-        # j = 0
+        if CLASSIC_VALUE_ITERATION:
+            j = 0
         if j != 0:
             if state != self.goal:
                 return 1.0
@@ -105,21 +108,21 @@ class UC_SSP:
         Return:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
-        # return p_sa_hat
+        if CLASSIC_VALUE_ITERATION:
+            return p_sa_hat
         p_sa = np.array(p_sa_hat)
-        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
+        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a proper distribution (equal to one within numerical tolerance)
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
-        # scaleup if started with lower value
-        if np.sum(p_sa) < 1:
-            p_sa *= 1/np.sum(p_sa)
-        # elif np.sum(p_sa) > 1:
-        #     p_sa /= np.sum(p_sa)
 
+        if IMPROVED_UC_SSP:
+            # scale up if started with lower value
+            if np.sum(p_sa) < 1:
+                p_sa *= 1/np.sum(p_sa)
 
         if abs(np.sum(p_sa) - 1) > 1e-9:
             raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa), 2)}")
@@ -137,7 +140,8 @@ class UC_SSP:
 
         beta = np.sqrt(numerator / n_k_plus)
 
-        beta /= 20  # if not scaled down, won't work for sure
+        if IMPROVED_UC_SSP:
+            beta /= 20  # if not scaled down, won't work for sure
 
         return beta
 
@@ -270,18 +274,82 @@ class UC_SSP:
         plt.xlabel('Episode')
         plt.show()
 
-        return pi
+        return pi, cost_log
+
+
+def save_policy(opt_pi):
+
+    save_path = pathlib.Path(__file__).parent.resolve()
+    file_name = 'frozen_lake_opt_policy.pkl'
+    # file_name = 'maze_5x5_opt_policy.pkl'
+
+    with open(save_path / file_name, 'wb') as file:
+        pickle.dump(opt_pi, file)
+
+
+def load_policy():
+
+    save_path = pathlib.Path(__file__).parent.resolve()
+    file_name = 'frozen_lake_opt_policy.pkl'
+    # file_name = 'maze_5x5_opt_policy.pkl'
+
+    with open(save_path / file_name, 'rb') as file:
+        opt_pi = pickle.load(file)
+
+    return opt_pi
+
+
+def run_policy(opt_pi, env, episodes):
+
+    cost_log = []
+
+    for episode in range(episodes):
+        episode_cost = 0
+        done = False
+        s = env.reset()
+        state_idx = to_1D(s)
+
+        while not done:
+            action = opt_pi(state_idx)
+            next_state, cost, done, _ = env.step(action)
+            episode_cost += cost
+
+            next_state_idx = to_1D(next_state)
+            state_idx = next_state_idx
+
+        cost_log.append(episode_cost)
+
+    return cost_log
+
+
+def get_algo_label():
+    if CLASSIC_VALUE_ITERATION:
+        return "Classic Value Iteration"
+
+    elif ORIG_UC_SSP:
+        return "UC_SSP"
+
+    elif IMPROVED_UC_SSP:
+        return "Modified UC_SSP"
 
 
 if __name__ == "__main__":
+
+    # decide what type of algorithm
+    CLASSIC_VALUE_ITERATION = False
+    ORIG_UC_SSP = True
+    IMPROVED_UC_SSP = False
+    # pick only 1
+    assert [CLASSIC_VALUE_ITERATION, ORIG_UC_SSP, IMPROVED_UC_SSP].count(True) == 1
+
     # algorithm related parameters:
     DELTA = 0.9
-    EPISODES = 100
-    RENDER = True
+    EPISODES = 150
+    RENDER = False
 
     # uncomment the right option:
-    # ENV_NAME = 'frozen_lake'
-    ENV_NAME = 'maze'
+    ENV_NAME = 'frozen_lake'
+    # ENV_NAME = 'maze'
 
     if ENV_NAME == 'frozen_lake':
         # env = stochastic_env
@@ -307,5 +375,16 @@ if __name__ == "__main__":
                        costs=costs,
                        K=EPISODES)
 
-    pi = algorithm.run()
+    pi, cost_log = algorithm.run()
     plot_policy(pi.map.reshape(grid_size, grid_size))
+
+    # compare to optimal
+    opt_pi = load_policy()
+    opt_cost_log = run_policy(opt_pi, env, EPISODES)
+
+    regret = np.sum(cost_log) - np.sum(opt_cost_log)
+    plt.plot(opt_cost_log, label=f"opt policy, overall regret={regret: .2f}")
+    plt.plot(cost_log, label=get_algo_label())
+    plt.legend()
+    plt.show()
+

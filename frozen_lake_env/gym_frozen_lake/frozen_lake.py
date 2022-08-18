@@ -19,18 +19,26 @@ RIGHT = 2
 UP = 0
 # ACTION = ["N", "S", "E", "W"]
 
+# origin
+OUR_MAP = ["SHFFF",
+           "FHFFF",
+           "FHFHF",
+           "FFFHF",
+           "FFFHG"]
 
-# OUR_MAP = ["SHFFF",
-#            "FHFFF",
-#            "FHFHF",
-#            "FFFHF",
-#            "FFFHG"]
+# avoid lower half
+# OUR_MAP = ["SFFFF",
+#            "HFFFF",
+#            "HHFFF",
+#            "HHHHF",
+#            "HHHHG"]
 
-OUR_MAP = ["SHHHH",
-           "FHHHH",
-           "FFHHH",
-           "FFFFH",
-           "FFFFG"]
+# simplest possible
+# OUR_MAP = ["SFFFF",
+#            "FFFFF",
+#            "FFFFF",
+#            "FFFFF",
+#            "FFFFG"]
 
 
 MAPS = {
@@ -264,5 +272,6 @@ class FrozenLakeEnv(DiscreteEnv):
             with closing(outfile):
                 return outfile.getvalue()
 
-stochastic_env = FrozenLakeEnv(desc = OUR_MAP, is_slippery=True)
-deterministic_env = FrozenLakeEnv(desc = OUR_MAP, is_slippery=False)
+
+stochastic_env = FrozenLakeEnv(desc=OUR_MAP, is_slippery=True)
+deterministic_env = FrozenLakeEnv(desc=OUR_MAP, is_slippery=False)
