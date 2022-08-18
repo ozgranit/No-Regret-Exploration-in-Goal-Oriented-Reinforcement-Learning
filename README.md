@@ -22,4 +22,4 @@ cd maze_env
 pip install -e .
 ```
 
-To run the experiment, just open `algorithms/uc_ssp/uc_ssp.py` and modify the parameters according to the comments at the bottom and rum.
+To run the experiment, just open `algorithms/uc_ssp/uc_ssp.py` and modify the parameters according to the comments at the bottom.
