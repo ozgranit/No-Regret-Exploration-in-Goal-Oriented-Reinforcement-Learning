@@ -128,6 +128,23 @@ class UC_SSP:
 
         return p_sa
 
+    def get_beta(self, state, action):
+        n_k_plus = max(1, self.N_k[state][action])
+        inner_log = (2 * self.n_actions * n_k_plus) / self.delta
+        numerator = 8 * self.n_states * np.log(inner_log)
+
+        beta = np.sqrt(numerator / n_k_plus)
+
+        beta /= 1  # if not scaled down, won't work for sure
+
+        return beta
+
+    def get_p_hat(self, state, action):
+        n_k_plus = max(1, self.N_k[state][action])
+        p_hat = self.P_counts[state][action] / n_k_plus
+
+        return p_hat
+
     def bellman_operator(self, values: np.ndarray, j: int) -> np.ndarray:
         """as defined in Eq. 4 in the article"""
         new_values = np.zeros_like(values)
@@ -154,7 +171,6 @@ class UC_SSP:
 
                 assert np.abs(np.sum(p_sa_tilde) - 1) < 1e-9 or np.sum(p_sa_tilde) == 0
 
-                # TODO: check if we should really run over all states in S'
                 expected_val = sum([p_sa_tilde[y] * values[y] for y in self.states_])
                 Qsa = cost + expected_val
                 if Qsa < min_cost:
