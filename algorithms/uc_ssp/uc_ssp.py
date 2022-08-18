@@ -29,7 +29,7 @@ class BellmanCost:
             assert np.abs(self.cost[state][action] - cost) < 1e-8
 
     def get_cost(self, state: int, action: int, j: int) -> float:
-        j = 0
+        # j = 0
         if j != 0:
             if state != self.goal:
                 return 1.0
@@ -106,7 +106,7 @@ class UC_SSP:
         Return:
             (n_states)-shaped float array. The optimistic transition p(.|s, a).
         """
-        return p_sa_hat
+        # return p_sa_hat
         p_sa = np.array(p_sa_hat)
         p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
         rank_dup = list(rank)
