@@ -107,16 +107,19 @@ class UC_SSP:
         """
         # return p_sa_hat
         p_sa = np.array(p_sa_hat)
-        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta)
+        p_sa[rank[0]] = min(1, p_sa_hat[rank[0]] + beta / 2)
         rank_dup = list(rank)
         last = rank_dup.pop()
         # Reduce until it is a proper distribution (equal to one within numerical tolerance)
         while sum(p_sa) > 1 + 1e-9:
             p_sa[last] = max(0, 1 - sum(p_sa) + p_sa[last])
             last = rank_dup.pop()
-        # scale up if started with lower value
-        # if np.sum(p_sa) < 1:
-        #     p_sa *= 1/np.sum(p_sa)
+        # scaleup if started with lower value
+        if np.sum(p_sa) < 1:
+            p_sa *= 1/np.sum(p_sa)
+        # elif np.sum(p_sa) > 1:
+        #     p_sa /= np.sum(p_sa)
+
 
         if abs(np.sum(p_sa) - 1) > 1e-9:
             raise AssertionError(f"probability vector sum should be 1 and not {np.round(np.sum(p_sa), 2)}")
@@ -134,7 +137,7 @@ class UC_SSP:
 
         beta = np.sqrt(numerator / n_k_plus)
 
-        beta /= 1  # if not scaled down, won't work for sure
+        beta /= 20  # if not scaled down, won't work for sure
 
         return beta
 
