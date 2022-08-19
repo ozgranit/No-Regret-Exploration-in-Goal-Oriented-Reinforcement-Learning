@@ -141,7 +141,7 @@ class UC_SSP:
         beta = np.sqrt(numerator / n_k_plus)
 
         if IMPROVED_UC_SSP:
-            beta /= 20  # if not scaled down, won't work for sure
+            beta /= 1000  # if not scaled down, won't work for sure
 
         return beta
 
@@ -342,15 +342,15 @@ def get_algo_label():
 if __name__ == "__main__":
 
     # decide what type of algorithm
-    CLASSIC_VALUE_ITERATION = True
+    CLASSIC_VALUE_ITERATION = False
     ORIG_UC_SSP = False
-    IMPROVED_UC_SSP = False
+    IMPROVED_UC_SSP = True
     # pick only 1
     assert [CLASSIC_VALUE_ITERATION, ORIG_UC_SSP, IMPROVED_UC_SSP].count(True) == 1
 
     # algorithm related parameters:
     DELTA = 0.9
-    EPISODES = 150
+    EPISODES = 1000
     RENDER = False
 
     # uncomment the right option:

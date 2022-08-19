@@ -72,7 +72,7 @@ def get_env_features(env):
 
     if env.metadata['name'] == 'frozen_lake':
         c_min = 0.1
-        c_max = 0.4
+        c_max = 0.5
         goal_state = env.observation_space.n - 1
         grid_size = int(np.sqrt(env.observation_space.n))
         n_states = env.nS
